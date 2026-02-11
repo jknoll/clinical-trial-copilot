@@ -38,21 +38,22 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
 
     orchestrator = _get_orchestrator(session_id, session_mgr)
 
-    # Send welcome message
-    await websocket.send_json({
-        "type": "text",
-        "content": (
-            "Welcome to the Clinical Trial Navigator. I'm here to help you explore "
-            "clinical trial options.\n\n"
-            "**Important:** I'm an AI assistant that helps you explore clinical trial options. "
-            "I don't provide medical advice. All information should be discussed with your "
-            "healthcare provider before making any decisions.\n\n"
-            "Let's start by learning about your situation. What condition are you exploring "
-            "clinical trials for? Please include the specific diagnosis, stage, or subtype "
-            "if you know it."
-        ),
-    })
-    await websocket.send_json({"type": "text_done"})
+    # Send welcome message only for new sessions (no conversation history)
+    if not orchestrator.conversation_history:
+        await websocket.send_json({
+            "type": "text",
+            "content": (
+                "Welcome to the Clinical Trial Navigator. I'm here to help you explore "
+                "clinical trial options.\n\n"
+                "**Important:** I'm an AI assistant that helps you explore clinical trial options. "
+                "I don't provide medical advice. All information should be discussed with your "
+                "healthcare provider before making any decisions.\n\n"
+                "Let's start by learning about your situation. What condition are you exploring "
+                "clinical trials for? Please include the specific diagnosis, stage, or subtype "
+                "if you know it."
+            ),
+        })
+        await websocket.send_json({"type": "text_done"})
 
     try:
         while True:
@@ -91,8 +92,7 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
 
     except WebSocketDisconnect:
         logger.info("WebSocket disconnected for session %s", session_id)
-        # Clean up orchestrator
-        _orchestrators.pop(session_id, None)
+        # Keep orchestrator alive so session can be resumed
     except Exception:
         logger.exception("WebSocket error for session %s", session_id)
         try:
@@ -102,4 +102,4 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
             })
         except Exception:
             pass
-        _orchestrators.pop(session_id, None)
+        # Keep orchestrator alive so session can be resumed

@@ -122,6 +122,11 @@ export function Chat({ sessionId }: Props) {
   }, []);
 
   useEffect(() => {
+    // Clear any stale messages from previous connections
+    setMessages([]);
+    pendingTextRef.current = "";
+    pendingIdRef.current = "";
+
     const ws = new WSClient(sessionId, handleMessage);
     ws.connect();
     wsRef.current = ws;

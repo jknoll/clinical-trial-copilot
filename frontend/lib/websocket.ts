@@ -3,23 +3,29 @@ export class WSClient {
   private sessionId: string;
   private onMessage: (msg: Record<string, unknown>) => void;
   private onError: (err: Event) => void;
-  private reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
+  private onConnect: (() => void) | null;
+  private intentionalClose = false;
 
   constructor(
     sessionId: string,
     onMessage: (msg: Record<string, unknown>) => void,
-    onError?: (err: Event) => void
+    onError?: (err: Event) => void,
+    onConnect?: () => void
   ) {
     this.sessionId = sessionId;
     this.onMessage = onMessage;
     this.onError = onError || (() => {});
+    this.onConnect = onConnect || null;
   }
 
   connect() {
     const wsUrl = process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8000';
     this.ws = new WebSocket(`${wsUrl}/ws/${this.sessionId}`);
 
-    this.ws.onopen = () => console.log('WebSocket connected');
+    this.ws.onopen = () => {
+      console.log('WebSocket connected');
+      this.onConnect?.();
+    };
 
     this.ws.onmessage = (event) => {
       try {
@@ -37,7 +43,7 @@ export class WSClient {
 
     this.ws.onclose = () => {
       console.log('WebSocket closed');
-      this.reconnectTimeout = setTimeout(() => this.connect(), 3000);
+      // Don't auto-reconnect — the component will handle lifecycle
     };
   }
 
@@ -54,9 +60,9 @@ export class WSClient {
   }
 
   disconnect() {
-    if (this.reconnectTimeout) clearTimeout(this.reconnectTimeout);
+    this.intentionalClose = true;
     if (this.ws) {
-      this.ws.onclose = null; // prevent reconnect
+      this.ws.onclose = null;
       this.ws.close();
     }
   }

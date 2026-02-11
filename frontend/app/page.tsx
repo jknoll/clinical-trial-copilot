@@ -11,18 +11,20 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    let ignore = false;
     async function createSession() {
       try {
         const res = await fetch(`${API_URL}/api/sessions`, { method: "POST" });
         if (!res.ok) throw new Error(`Failed to create session: ${res.status}`);
         const data = await res.json();
-        setSessionId(data.session_id);
+        if (!ignore) setSessionId(data.session_id);
       } catch (err) {
         console.error("Failed to create session:", err);
-        setError("Unable to connect to the server. Please make sure the backend is running.");
+        if (!ignore) setError("Unable to connect to the server. Please make sure the backend is running.");
       }
     }
     createSession();
+    return () => { ignore = true; };
   }, []);
 
   return (

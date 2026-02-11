@@ -21,6 +21,48 @@ PROMPTS_DIR = Path(__file__).parent / "prompts"
 SKILLS_DIR = Path(__file__).parent / "skills"
 
 
+def _parse_trial_detail(raw: dict) -> dict:
+    """Extract essential fields from a full study record to keep context small."""
+    protocol = raw.get("protocolSection", {})
+    ident = protocol.get("identificationModule", {})
+    status = protocol.get("statusModule", {})
+    design = protocol.get("designModule", {})
+    desc = protocol.get("descriptionModule", {})
+    elig = protocol.get("eligibilityModule", {})
+    arms = protocol.get("armsInterventionsModule", {})
+    outcomes = protocol.get("outcomesModule", {})
+    sponsor = protocol.get("sponsorCollaboratorsModule", {})
+
+    interventions = [i.get("name", "") for i in arms.get("interventions", []) if i.get("name")]
+    primary_outcomes = [
+        {"measure": o.get("measure", ""), "timeFrame": o.get("timeFrame", "")}
+        for o in (outcomes.get("primaryOutcomes", []) or [])[:3]
+    ]
+
+    return {
+        "nct_id": ident.get("nctId"),
+        "brief_title": ident.get("briefTitle"),
+        "official_title": ident.get("officialTitle"),
+        "overall_status": status.get("overallStatus"),
+        "phase": " / ".join(design.get("phases", [])),
+        "study_type": design.get("studyType"),
+        "brief_summary": (desc.get("briefSummary") or "")[:500],
+        "detailed_description": (desc.get("detailedDescription") or "")[:500],
+        "interventions": interventions,
+        "primary_outcomes": primary_outcomes,
+        "eligibility_criteria_text": (elig.get("eligibilityCriteria") or "")[:2000],
+        "min_age": elig.get("minimumAge"),
+        "max_age": elig.get("maximumAge"),
+        "sex": elig.get("sex"),
+        "enrollment": design.get("enrollmentInfo", {}).get("count"),
+        "sponsor": sponsor.get("leadSponsor", {}).get("name"),
+        "arms": [
+            {"label": a.get("label", ""), "type": a.get("type", ""), "description": (a.get("description") or "")[:200]}
+            for a in (arms.get("arms", []) or [])[:4]
+        ],
+    }
+
+
 def _load_prompt(name: str) -> str:
     path = PROMPTS_DIR / f"{name}.md"
     if path.exists():
@@ -405,12 +447,28 @@ class AgentOrchestrator:
                 state = self.session_mgr.get_state(self.session_id)
                 state.search_complete = True
                 self.session_mgr.save_state(self.session_id, state)
-                return json.dumps(valid[:20], default=str)  # Limit context size
+                # Return slim summaries to keep context small
+                slim = [
+                    {
+                        "nct_id": r.get("nct_id"),
+                        "brief_title": r.get("brief_title", "")[:120],
+                        "phase": r.get("phase", ""),
+                        "overall_status": r.get("overall_status", ""),
+                        "interventions": r.get("interventions", [])[:3],
+                        "sponsor": r.get("sponsor", ""),
+                        "enrollment_count": r.get("enrollment_count"),
+                        "nearest_city": (r.get("locations", [{}])[0].get("city", "") + ", " + r.get("locations", [{}])[0].get("state", "")) if r.get("locations") else "",
+                    }
+                    for r in valid[:15]
+                ]
+                return json.dumps({"count": len(valid), "trials": slim}, default=str)
 
             elif tool_name == "get_trial_details":
                 from backend.mcp_servers.clinical_trials import get_trial_details
                 result = await get_trial_details(tool_input["nct_id"])
-                return json.dumps(result, default=str)
+                # Extract only the fields Claude needs, skip raw protocol
+                summary = _parse_trial_detail(result)
+                return json.dumps(summary, default=str)
 
             elif tool_name == "get_eligibility_criteria":
                 from backend.mcp_servers.clinical_trials import get_eligibility_criteria
@@ -420,7 +478,8 @@ class AgentOrchestrator:
             elif tool_name == "get_trial_locations":
                 from backend.mcp_servers.clinical_trials import get_trial_locations
                 result = await get_trial_locations(tool_input["nct_id"])
-                return json.dumps(result, default=str)
+                # Limit to 10 closest locations to save context
+                return json.dumps(result[:10], default=str)
 
             elif tool_name == "geocode_location":
                 from backend.mcp_servers.geocoding import geocode_location
@@ -446,6 +505,11 @@ class AgentOrchestrator:
             elif tool_name == "get_drug_label":
                 from backend.mcp_servers.fda_data import get_drug_label
                 result = await get_drug_label(tool_input["drug_name"])
+                # Truncate long label fields
+                if isinstance(result, dict):
+                    for key in result:
+                        if isinstance(result[key], str) and len(result[key]) > 1000:
+                            result[key] = result[key][:1000] + "..."
                 return json.dumps(result, default=str)
 
             elif tool_name == "save_patient_profile":
@@ -531,6 +595,20 @@ class AgentOrchestrator:
             logger.exception("Tool execution failed: %s", tool_name)
             return json.dumps({"error": str(e)})
 
+    def _trim_history(self):
+        """Trim conversation history to prevent context overflow.
+
+        Keeps the first 2 messages (initial exchange) and the last 20 messages.
+        Replaces middle messages with a summary marker.
+        """
+        if len(self.conversation_history) <= 24:
+            return
+        kept_start = self.conversation_history[:2]
+        kept_end = self.conversation_history[-20:]
+        self.conversation_history = kept_start + [
+            {"role": "user", "content": "[Earlier conversation trimmed to save context. See session state for details.]"}
+        ] + kept_end
+
     async def process_message(self, user_message: str):
         """Process a user message and yield response chunks.
 
@@ -554,6 +632,9 @@ class AgentOrchestrator:
             "role": "user",
             "content": user_message,
         })
+
+        # Trim history to prevent context overflow
+        self._trim_history()
 
         # Agentic loop: keep calling Claude until it stops using tools
         max_iterations = 15

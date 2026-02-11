@@ -8,7 +8,7 @@ import { useState } from "react";
 
 interface Props {
   message: ChatMessage;
-  onWidgetSubmit: (questionId: string, selections: string[]) => void;
+  onWidgetSubmit: (questionId: string, selections: string[], question?: string) => void;
   onTrialSelection: (trialIds: string[]) => void;
 }
 

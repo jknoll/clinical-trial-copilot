@@ -152,7 +152,7 @@ export function Chat({ sessionId }: Props) {
   }, [input]);
 
   const handleWidgetSubmit = useCallback(
-    (questionId: string, selections: string[]) => {
+    (questionId: string, selections: string[], question?: string) => {
       if (!wsRef.current) return;
       // Show the selection as a user message
       const msg: ChatMessage = {
@@ -168,6 +168,7 @@ export function Chat({ sessionId }: Props) {
         type: "widget_response",
         questionId,
         selections,
+        question,
       });
     },
     []

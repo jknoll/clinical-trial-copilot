@@ -69,10 +69,13 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
             if msg_type == "message":
                 user_content = data.get("content", "")
             elif msg_type == "widget_response":
-                # Format widget response as natural language for the agent
+                # Format widget response with the question context for the agent
                 selections = data.get("selections", [])
-                question_id = data.get("questionId", "")
-                user_content = f"[Selected: {', '.join(selections)}]"
+                question_text = data.get("question", "")
+                if question_text:
+                    user_content = f"Question: \"{question_text}\" — My answer: {', '.join(selections)}"
+                else:
+                    user_content = f"My answer: {', '.join(selections)}"
             elif msg_type == "trial_selection":
                 # User selected trials for deep analysis
                 selected_ids = data.get("trialIds", [])

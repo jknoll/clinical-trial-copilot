@@ -15,7 +15,7 @@ interface Props {
   questionId: string;
   widgetType: "single_select" | "multi_select";
   options: Option[];
-  onSubmit: (questionId: string, selections: string[]) => void;
+  onSubmit: (questionId: string, selections: string[], question?: string) => void;
 }
 
 export function IntakeWidget({ question, questionId, widgetType, options, onSubmit }: Props) {
@@ -43,7 +43,7 @@ export function IntakeWidget({ question, questionId, widgetType, options, onSubm
     const selections = options
       .filter((o) => selected.has(o.value))
       .map((o) => o.label);
-    onSubmit(questionId, selections);
+    onSubmit(questionId, selections, question);
   };
 
   // For single select, auto-submit on selection
@@ -53,7 +53,7 @@ export function IntakeWidget({ question, questionId, widgetType, options, onSubm
       setSelected(new Set([value]));
       setSubmitted(true);
       const opt = options.find((o) => o.value === value);
-      if (opt) onSubmit(questionId, [opt.label]);
+      if (opt) onSubmit(questionId, [opt.label], question);
     } else {
       toggle(value);
     }

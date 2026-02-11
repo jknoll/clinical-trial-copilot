@@ -51,6 +51,7 @@ export class WSClient {
     type: string;
     content?: string;
     questionId?: string;
+    question?: string;
     selections?: string[];
     trialIds?: string[];
   }) {

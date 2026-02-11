@@ -432,6 +432,28 @@ class AgentOrchestrator:
         self.client = anthropic.AsyncAnthropic(api_key=settings.anthropic_api_key)
         self.conversation_history: list[dict[str, Any]] = []
         self._pending_emissions: list[dict[str, Any]] = []
+        self._intake_answers: dict[str, str] = {}
+        self._free_text_counter: int = 0
+
+    def _extract_intake_answer(self, user_message: str) -> None:
+        """Parse structured widget responses and free-text messages during intake.
+
+        Widget responses arrive as: Question: "..." — My answer: ...
+        Free-text messages (like the initial condition description) are stored with free_text_N keys.
+        """
+        import re
+
+        # Match widget response format: Question: "..." — My answer: ...
+        # Handles both em-dash (—) and double-hyphen (--)
+        match = re.match(r'^Question:\s*"(.+?)"\s*(?:—|--)\s*My answer:\s*(.+)$', user_message)
+        if match:
+            question = match.group(1).strip()
+            answer = match.group(2).strip()
+            self._intake_answers[question] = answer
+        else:
+            # Free-text input (e.g., initial condition description)
+            self._free_text_counter += 1
+            self._intake_answers[f"free_text_{self._free_text_counter}"] = user_message.strip()
 
     async def _execute_tool(self, tool_name: str, tool_input: dict) -> str:
         """Execute a tool call and return the result as a string."""
@@ -597,13 +619,19 @@ class AgentOrchestrator:
             logger.exception("Tool execution failed: %s", tool_name)
             return json.dumps({"error": str(e)})
 
-    def _trim_history(self):
+    def _trim_history(self, state: SessionState | None = None):
         """Trim conversation history to prevent context overflow.
 
-        Keeps the first 2 messages (initial exchange) and the last 20 messages.
-        Replaces middle messages with a summary marker.
+        During INTAKE phase, uses a higher threshold (50) to preserve more Q&A pairs.
+        In other phases, keeps the first 2 messages and the last 20 (threshold 24).
+        Answers are also preserved in the system prompt via _intake_answers, so trimming
+        during intake is a secondary safety net.
         """
-        if len(self.conversation_history) <= 24:
+        threshold = 24
+        if state and state.phase == SessionPhase.INTAKE and not state.profile_complete:
+            threshold = 50
+
+        if len(self.conversation_history) <= threshold:
             return
         kept_start = self.conversation_history[:2]
         kept_end = self.conversation_history[-20:]
@@ -629,6 +657,10 @@ class AgentOrchestrator:
         session_context = self._build_session_context(state)
         full_system = f"{system_prompt}\n\n## Session Context\n{session_context}"
 
+        # Extract intake answers before they can be trimmed
+        if state.phase == SessionPhase.INTAKE and not state.profile_complete:
+            self._extract_intake_answer(user_message)
+
         # Add user message to history
         self.conversation_history.append({
             "role": "user",
@@ -636,7 +668,7 @@ class AgentOrchestrator:
         })
 
         # Trim history to prevent context overflow
-        self._trim_history()
+        self._trim_history(state)
 
         # Agentic loop: keep calling Claude until it stops using tools
         max_iterations = 15
@@ -789,6 +821,16 @@ class AgentOrchestrator:
         parts.append(f"Search complete: {state.search_complete}")
         parts.append(f"Matching complete: {state.matching_complete}")
         parts.append(f"Report generated: {state.report_generated}")
+
+        # During intake, inject all collected answers so they survive history trimming
+        if self._intake_answers and not state.profile_complete:
+            answers_section = "\nCollected Patient Answers (use these when compiling the profile):"
+            for q, a in self._intake_answers.items():
+                if q.startswith("free_text_"):
+                    answers_section += f"\n- Patient description: {a}"
+                else:
+                    answers_section += f"\n- {q}: {a}"
+            parts.append(answers_section)
 
         if state.profile_complete:
             try:

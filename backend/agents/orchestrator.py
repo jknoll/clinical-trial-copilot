@@ -439,7 +439,7 @@ class AgentOrchestrator:
         """Parse structured widget responses and free-text messages during intake.
 
         Widget responses arrive as: Question: "..." — My answer: ...
-        Free-text messages (like the initial condition description) are stored with free_text_N keys.
+        Free-text messages (initial condition description) stored as free_text_N.
         """
         import re
 

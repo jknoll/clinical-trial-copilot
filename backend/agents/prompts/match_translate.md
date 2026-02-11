@@ -63,4 +63,4 @@ For each trial, produce:
 
 Rank trials by fit score (highest first). Present the top 10 to the patient, or top 5 if fewer than 10 are above 50% fit.
 
-Call `save_matched_trials` with the scored and translated trial data.
+After scoring and translating, call `emit_trial_cards` with the scored trials (set `selectable: true`) so the patient can choose which ones to include in their report. Then call `update_session_phase` with phase "selection".

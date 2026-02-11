@@ -333,6 +333,51 @@ TOOLS: list[dict[str, Any]] = [
             "required": ["phase", "message"],
         },
     },
+    {
+        "name": "save_matched_trials",
+        "description": "Save scored and ranked trial matches after eligibility analysis.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "trials": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "nct_id": {"type": "string"},
+                            "brief_title": {"type": "string"},
+                            "phase": {"type": "string"},
+                            "overall_status": {"type": "string"},
+                            "fit_score": {"type": "number"},
+                            "fit_summary": {"type": "string"},
+                            "plain_language_summary": {"type": "string"},
+                            "interventions": {"type": "array", "items": {"type": "string"}},
+                            "sponsor": {"type": "string"},
+                        },
+                    },
+                },
+            },
+            "required": ["trials"],
+        },
+    },
+    {
+        "name": "generate_report",
+        "description": "Generate the final HTML report for the patient. Call this during the report phase after all trials have been analyzed.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "questions_for_doctor": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Personalized questions for the patient to ask their doctor.",
+                },
+                "glossary": {
+                    "type": "object",
+                    "description": "Dictionary of medical terms and their plain language definitions.",
+                },
+            },
+        },
+    },
 ]
 
 
@@ -352,10 +397,15 @@ class AgentOrchestrator:
             if tool_name == "search_trials":
                 from backend.mcp_servers.clinical_trials import search_trials
                 results = await search_trials(**tool_input)
-                # Save to session
-                trials = [TrialSummary(**r) if isinstance(r, dict) else r for r in results]
+                # Save to session — filter out entries with no NCT ID
+                valid = [r for r in results if r.get("nct_id")]
+                trials = [TrialSummary(**r) for r in valid]
                 self.session_mgr.save_search_results(self.session_id, trials)
-                return json.dumps(results[:20], default=str)  # Limit context size
+                # Update session state
+                state = self.session_mgr.get_state(self.session_id)
+                state.search_complete = True
+                self.session_mgr.save_state(self.session_id, state)
+                return json.dumps(valid[:20], default=str)  # Limit context size
 
             elif tool_name == "get_trial_details":
                 from backend.mcp_servers.clinical_trials import get_trial_details
@@ -437,6 +487,42 @@ class AgentOrchestrator:
                     "message": tool_input["message"],
                 })
                 return json.dumps({"status": "status_emitted"})
+
+            elif tool_name == "save_matched_trials":
+                trials_data = tool_input.get("trials", [])
+                matched = [MatchedTrial(**t) for t in trials_data]
+                self.session_mgr.save_matched_trials(self.session_id, matched)
+                state = self.session_mgr.get_state(self.session_id)
+                state.matching_complete = True
+                self.session_mgr.save_state(self.session_id, state)
+                return json.dumps({"status": "saved", "count": len(matched)})
+
+            elif tool_name == "generate_report":
+                from backend.report.generator import generate_report
+                profile = self.session_mgr.get_profile(self.session_id)
+                matched = self.session_mgr.get_matched_trials(self.session_id)
+                questions = tool_input.get("questions_for_doctor")
+                glossary_raw = tool_input.get("glossary")
+                # Convert dict glossary to list format expected by generator
+                glossary = None
+                if isinstance(glossary_raw, dict):
+                    glossary = [
+                        {"term": k, "definition": v}
+                        for k, v in glossary_raw.items()
+                    ]
+                elif isinstance(glossary_raw, list):
+                    glossary = glossary_raw
+                html = generate_report(profile, matched, questions, glossary)
+                self.session_mgr.save_report(self.session_id, html)
+                state = self.session_mgr.get_state(self.session_id)
+                state.report_generated = True
+                self.session_mgr.save_state(self.session_id, state)
+                report_url = f"/api/sessions/{self.session_id}/report"
+                self._pending_emissions.append({
+                    "type": "report_ready",
+                    "url": report_url,
+                })
+                return json.dumps({"status": "generated", "url": report_url})
 
             else:
                 return json.dumps({"error": f"Unknown tool: {tool_name}"})
@@ -574,6 +660,18 @@ class AgentOrchestrator:
                         "type": "status",
                         "phase": "fda_lookup",
                         "message": f"Looking up FDA data for {tu['input'].get('drug_name', '')}...",
+                    }
+                elif tu["name"] == "generate_report":
+                    yield {
+                        "type": "status",
+                        "phase": "report",
+                        "message": "Generating your personalized report...",
+                    }
+                elif tu["name"] == "geocode_location":
+                    yield {
+                        "type": "status",
+                        "phase": "geocoding",
+                        "message": f"Looking up location: {tu['input'].get('location_string', '')}...",
                     }
 
                 result = await self._execute_tool(tu["name"], tu["input"])

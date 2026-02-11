@@ -82,3 +82,7 @@ Define all medical and clinical trial terms used in the report. Alphabetical ord
 ## Footer
 
 Include a timestamp, a note that information is current as of the search date, and a reminder that trial availability and eligibility criteria can change. Repeat the medical disclaimer from the session start.
+
+## Implementation
+
+Call `generate_report` with personalized `questions_for_doctor` and `glossary` to generate the HTML report. The report will be automatically saved and a download link will be sent to the patient. Then call `update_session_phase` with phase "followup".

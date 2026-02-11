@@ -76,8 +76,12 @@ Never skip these checkpoints. The patient must have agency over every major deci
 
 ### Session Management
 - `save_patient_profile` - Persist the structured patient profile for the session.
-- `save_search_results` - Save deduplicated search results.
-- `save_matched_trials` - Save scored and ranked trial matches.
+- `update_session_phase` - Transition to the next phase.
+
+### UI Emission
+- `emit_widget` - Send a structured selection widget to the user.
+- `emit_trial_cards` - Send trial summary cards for review/selection.
+- `emit_status` - Send a progress update message.
 
 ## State Management
 

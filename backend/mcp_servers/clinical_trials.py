@@ -48,33 +48,27 @@ def _parse_study_summary(study: dict) -> dict:
     contacts_locations = protocol.get("contactsLocationsModule", {})
 
     locations_raw = contacts_locations.get("locations", [])
-    locations = []
+    flat_locations = []
     for loc in locations_raw:
         geo = loc.get("geoPoint", {})
         contacts = loc.get("contacts", [])
-        locations.append({
-            "facility": loc.get("facility"),
-            "city": loc.get("city"),
-            "state": loc.get("state"),
-            "country": loc.get("country"),
+        first_contact = contacts[0] if contacts else {}
+        flat_locations.append({
+            "facility": loc.get("facility", ""),
+            "city": loc.get("city", ""),
+            "state": loc.get("state", ""),
+            "country": loc.get("country", ""),
             "latitude": geo.get("lat"),
             "longitude": geo.get("lon"),
-            "status": loc.get("status"),
-            "contacts": [
-                {
-                    "name": c.get("name"),
-                    "role": c.get("role"),
-                    "phone": c.get("phone"),
-                    "email": c.get("email"),
-                }
-                for c in contacts
-            ],
+            "status": loc.get("status", ""),
+            "contact_name": first_contact.get("name", ""),
+            "contact_phone": first_contact.get("phone", ""),
+            "contact_email": first_contact.get("email", ""),
         })
 
     interventions_raw = arms.get("interventions", [])
-    interventions = [
-        {"name": i.get("name"), "type": i.get("type")}
-        for i in interventions_raw
+    intervention_names = [
+        i.get("name", "") for i in interventions_raw if i.get("name")
     ]
 
     enrollment_info = design.get("enrollmentInfo", {})
@@ -82,20 +76,23 @@ def _parse_study_summary(study: dict) -> dict:
     completion_date = status_mod.get("completionDateStruct", {})
     lead_sponsor = sponsor.get("leadSponsor", {})
 
+    phases_raw = design.get("phases", [])
+    phase_str = " / ".join(phases_raw) if phases_raw else ""
+
     return {
         "nct_id": ident.get("nctId"),
         "brief_title": ident.get("briefTitle"),
         "official_title": ident.get("officialTitle"),
         "overall_status": status_mod.get("overallStatus"),
-        "phases": design.get("phases", []),
+        "phase": phase_str,
         "brief_summary": description.get("briefSummary"),
         "conditions": conditions.get("conditions", []),
-        "interventions": interventions,
+        "interventions": intervention_names,
         "enrollment_count": enrollment_info.get("count"),
         "start_date": start_date.get("date"),
         "completion_date": completion_date.get("date"),
-        "lead_sponsor": lead_sponsor.get("name"),
-        "locations": locations,
+        "sponsor": lead_sponsor.get("name"),
+        "locations": flat_locations,
     }
 
 
@@ -142,11 +139,12 @@ async def search_trials(
             filter_status = "RECRUITING"
         params["filter.overallStatus"] = filter_status
 
-        # Phase filter — handle list or string
-        if isinstance(phase, list):
-            params["filter.phase"] = ",".join(phase)
-        elif phase:
-            params["filter.phase"] = phase
+        # Phase filter — use filter.advanced with AREA[Phase] syntax
+        # ClinicalTrials.gov v2 does not support filter.phase directly
+        phase_list = phase if isinstance(phase, list) else ([phase] if phase else [])
+        if phase_list:
+            phase_expr = " OR ".join(phase_list)
+            params["filter.advanced"] = f"AREA[Phase]({phase_expr})"
 
         if latitude is not None and longitude is not None:
             distance_km = distance_miles * _MILES_TO_KM
@@ -317,23 +315,18 @@ async def get_trial_locations(nct_id: str) -> list[dict]:
     for loc in locations_raw:
         geo = loc.get("geoPoint", {})
         contacts = loc.get("contacts", [])
+        first_contact = contacts[0] if contacts else {}
         locations.append({
-            "facility": loc.get("facility"),
-            "city": loc.get("city"),
-            "state": loc.get("state"),
-            "country": loc.get("country"),
+            "facility": loc.get("facility", ""),
+            "city": loc.get("city", ""),
+            "state": loc.get("state", ""),
+            "country": loc.get("country", ""),
             "latitude": geo.get("lat"),
             "longitude": geo.get("lon"),
-            "status": loc.get("status"),
-            "contacts": [
-                {
-                    "name": c.get("name"),
-                    "role": c.get("role"),
-                    "phone": c.get("phone"),
-                    "email": c.get("email"),
-                }
-                for c in contacts
-            ],
+            "status": loc.get("status", ""),
+            "contact_name": first_contact.get("name", ""),
+            "contact_phone": first_contact.get("phone", ""),
+            "contact_email": first_contact.get("email", ""),
         })
 
     return locations

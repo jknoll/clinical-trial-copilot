@@ -41,4 +41,6 @@ Present a concise summary to the user:
 
 Example: "I searched using 4 different strategies and found 83 results total. After removing duplicates, there are 41 unique trials. 28 of those are within 100 miles of your location. Here is the breakdown: 5 Phase 1, 14 Phase 2, 19 Phase 3, and 3 Phase 4."
 
-Call `save_search_results` with the deduplicated, annotated results before transitioning to the matching phase.
+After searching, call `update_session_phase` with phase "matching" to transition to the next phase. The search results are automatically saved when you call `search_trials`.
+
+Then call `emit_status` to tell the user you are now analyzing eligibility criteria.

@@ -1,0 +1,36 @@
+{
+  "condition": {
+    "primary_diagnosis": "Non-small cell lung cancer",
+    "stage": "Stage IIIA",
+    "subtype": "Adenocarcinoma",
+    "biomarkers": ["EGFR mutation negative", "PD-L1 TPS 60%"],
+    "date_of_diagnosis": "2025-10"
+  },
+  "treatment_history": [
+    {
+      "treatment": "Carboplatin + Pemetrexed",
+      "type": "chemotherapy",
+      "cycles_completed": 4,
+      "response": "partial response",
+      "end_date": "2026-01"
+    }
+  ],
+  "demographics": {
+    "age": 62,
+    "sex": "male",
+    "estimated_ecog": 1
+  },
+  "location": {
+    "description": "Lompoc, CA",
+    "latitude": 34.6392,
+    "longitude": -120.4579,
+    "max_travel_miles": 200,
+    "open_to_virtual": true
+  },
+  "preferences": {
+    "trial_types": ["treatment"],
+    "phases": ["PHASE2", "PHASE3"],
+    "placebo_acceptable": true,
+    "intervention_interests": ["immunotherapy"]
+  }
+}

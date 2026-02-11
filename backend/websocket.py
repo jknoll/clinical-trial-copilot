@@ -1,0 +1,105 @@
+"""WebSocket handler for real-time chat streaming."""
+
+from __future__ import annotations
+
+import json
+import logging
+
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+
+from backend.agents.orchestrator import AgentOrchestrator
+from backend.session import SessionManager
+
+logger = logging.getLogger(__name__)
+router = APIRouter()
+
+# Store active orchestrators per session
+_orchestrators: dict[str, AgentOrchestrator] = {}
+
+
+def _get_orchestrator(session_id: str, session_mgr: SessionManager) -> AgentOrchestrator:
+    if session_id not in _orchestrators:
+        _orchestrators[session_id] = AgentOrchestrator(session_id, session_mgr)
+    return _orchestrators[session_id]
+
+
+@router.websocket("/ws/{session_id}")
+async def websocket_endpoint(websocket: WebSocket, session_id: str):
+    await websocket.accept()
+    session_mgr = SessionManager()
+
+    # Validate session exists
+    try:
+        session_mgr.session_dir(session_id)
+    except ValueError:
+        await websocket.send_json({"type": "error", "content": "Invalid session ID"})
+        await websocket.close()
+        return
+
+    orchestrator = _get_orchestrator(session_id, session_mgr)
+
+    # Send welcome message
+    await websocket.send_json({
+        "type": "text",
+        "content": (
+            "Welcome to the Clinical Trial Navigator. I'm here to help you explore "
+            "clinical trial options.\n\n"
+            "**Important:** I'm an AI assistant that helps you explore clinical trial options. "
+            "I don't provide medical advice. All information should be discussed with your "
+            "healthcare provider before making any decisions.\n\n"
+            "Let's start by learning about your situation. What condition are you exploring "
+            "clinical trials for? Please include the specific diagnosis, stage, or subtype "
+            "if you know it."
+        ),
+    })
+    await websocket.send_json({"type": "text_done"})
+
+    try:
+        while True:
+            # Receive message from client
+            raw = await websocket.receive_text()
+            try:
+                data = json.loads(raw)
+            except json.JSONDecodeError:
+                data = {"type": "message", "content": raw}
+
+            msg_type = data.get("type", "message")
+
+            if msg_type == "message":
+                user_content = data.get("content", "")
+            elif msg_type == "widget_response":
+                # Format widget response as natural language for the agent
+                selections = data.get("selections", [])
+                question_id = data.get("questionId", "")
+                user_content = f"[Selected: {', '.join(selections)}]"
+            elif msg_type == "trial_selection":
+                # User selected trials for deep analysis
+                selected_ids = data.get("trialIds", [])
+                state = session_mgr.get_state(session_id)
+                state.selected_trial_ids = selected_ids
+                session_mgr.save_state(session_id, state)
+                user_content = f"I've selected these trials for detailed analysis: {', '.join(selected_ids)}"
+            else:
+                user_content = data.get("content", str(data))
+
+            if not user_content.strip():
+                continue
+
+            # Process through orchestrator and stream responses
+            async for chunk in orchestrator.process_message(user_content):
+                await websocket.send_json(chunk)
+
+    except WebSocketDisconnect:
+        logger.info("WebSocket disconnected for session %s", session_id)
+        # Clean up orchestrator
+        _orchestrators.pop(session_id, None)
+    except Exception:
+        logger.exception("WebSocket error for session %s", session_id)
+        try:
+            await websocket.send_json({
+                "type": "error",
+                "content": "An unexpected error occurred. Please try again.",
+            })
+        except Exception:
+            pass
+        _orchestrators.pop(session_id, None)

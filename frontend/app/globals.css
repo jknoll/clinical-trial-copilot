@@ -1,0 +1,96 @@
+@import "tailwindcss";
+
+:root {
+  --background: #f8fafc;
+  --foreground: #0f172a;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: Arial, Helvetica, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Chat bubbles */
+.chat-bubble-user {
+  background: #2563eb;
+  color: white;
+  border-radius: 1rem 1rem 0.25rem 1rem;
+  padding: 0.75rem 1rem;
+  max-width: 80%;
+  margin-left: auto;
+}
+
+.chat-bubble-assistant {
+  background: white;
+  color: #0f172a;
+  border-radius: 1rem 1rem 1rem 0.25rem;
+  padding: 0.75rem 1rem;
+  max-width: 80%;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  border: 1px solid #e2e8f0;
+}
+
+/* Trial cards */
+.trial-card {
+  background: white;
+  border-radius: 0.75rem;
+  border: 1px solid #e2e8f0;
+  padding: 1rem;
+  transition: box-shadow 0.2s;
+}
+
+.trial-card:hover {
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+/* Fit score badges */
+.fit-score-high {
+  color: #059669;
+  background: #ecfdf5;
+}
+
+.fit-score-medium {
+  color: #d97706;
+  background: #fffbeb;
+}
+
+.fit-score-low {
+  color: #dc2626;
+  background: #fef2f2;
+}
+
+/* Typing indicator */
+@keyframes bounce {
+  0%, 80%, 100% { transform: scale(0); }
+  40% { transform: scale(1); }
+}
+
+.typing-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #94a3b8;
+  display: inline-block;
+  animation: bounce 1.4s infinite ease-in-out both;
+}
+
+.typing-dot:nth-child(1) { animation-delay: -0.32s; }
+.typing-dot:nth-child(2) { animation-delay: -0.16s; }
+.typing-dot:nth-child(3) { animation-delay: 0s; }
+
+/* Markdown-like rendering */
+.message-content p { margin-bottom: 0.5rem; }
+.message-content strong { font-weight: 600; }
+.message-content ul { list-style: disc; padding-left: 1.5rem; margin-bottom: 0.5rem; }
+.message-content ol { list-style: decimal; padding-left: 1.5rem; margin-bottom: 0.5rem; }
+.message-content li { margin-bottom: 0.25rem; }

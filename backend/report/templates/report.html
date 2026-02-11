@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Clinical Trial Navigator — Your Personalized Briefing</title>
+    <style>
+        :root {
+            --blue-600: #2563eb;
+            --blue-700: #1d4ed8;
+            --blue-50: #eff6ff;
+            --green-600: #16a34a;
+            --green-50: #f0fdf4;
+            --amber-600: #d97706;
+            --amber-50: #fffbeb;
+            --red-600: #dc2626;
+            --red-50: #fef2f2;
+            --slate-50: #f8fafc;
+            --slate-100: #f1f5f9;
+            --slate-200: #e2e8f0;
+            --slate-600: #475569;
+            --slate-700: #334155;
+            --slate-800: #1e293b;
+            --slate-900: #0f172a;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.6;
+            color: var(--slate-800);
+            background: white;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 2rem 1.5rem;
+        }
+
+        h1 { font-size: 1.75rem; color: var(--blue-700); margin-bottom: 0.5rem; }
+        h2 { font-size: 1.35rem; color: var(--slate-900); margin-top: 2rem; margin-bottom: 0.75rem; border-bottom: 2px solid var(--blue-600); padding-bottom: 0.25rem; }
+        h3 { font-size: 1.1rem; color: var(--slate-800); margin-top: 1.25rem; margin-bottom: 0.5rem; }
+
+        .disclaimer {
+            background: var(--amber-50);
+            border: 1px solid var(--amber-600);
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 1.5rem;
+            font-size: 0.9rem;
+            color: var(--slate-700);
+        }
+
+        .disclaimer strong { color: var(--amber-600); }
+
+        .summary-box {
+            background: var(--blue-50);
+            border-radius: 8px;
+            padding: 1.25rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .profile-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.75rem;
+            margin-bottom: 1rem;
+        }
+
+        .profile-item {
+            background: var(--slate-50);
+            border-radius: 6px;
+            padding: 0.75rem;
+        }
+
+        .profile-item .label {
+            font-size: 0.8rem;
+            color: var(--slate-600);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .profile-item .value { font-weight: 600; }
+
+        .trial-card {
+            border: 1px solid var(--slate-200);
+            border-radius: 10px;
+            padding: 1.25rem;
+            margin-bottom: 1.25rem;
+            page-break-inside: avoid;
+        }
+
+        .trial-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 0.75rem;
+        }
+
+        .trial-title { font-weight: 600; font-size: 1.05rem; flex: 1; }
+
+        .fit-badge {
+            border-radius: 20px;
+            padding: 0.25rem 0.75rem;
+            font-weight: 600;
+            font-size: 0.85rem;
+            white-space: nowrap;
+            margin-left: 0.75rem;
+        }
+
+        .fit-high { background: var(--green-50); color: var(--green-600); }
+        .fit-medium { background: var(--amber-50); color: var(--amber-600); }
+        .fit-low { background: var(--red-50); color: var(--red-600); }
+
+        .trial-meta {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+            margin-bottom: 0.75rem;
+            font-size: 0.9rem;
+            color: var(--slate-600);
+        }
+
+        .trial-meta span { display: flex; align-items: center; gap: 0.25rem; }
+
+        .eligibility-list { list-style: none; padding: 0; }
+
+        .eligibility-list li {
+            padding: 0.35rem 0;
+            padding-left: 1.75rem;
+            position: relative;
+            font-size: 0.9rem;
+        }
+
+        .eligibility-list li .icon {
+            position: absolute;
+            left: 0;
+            font-size: 1rem;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1rem 0;
+            font-size: 0.9rem;
+        }
+
+        th, td {
+            border: 1px solid var(--slate-200);
+            padding: 0.5rem 0.75rem;
+            text-align: left;
+        }
+
+        th {
+            background: var(--slate-100);
+            font-weight: 600;
+            color: var(--slate-700);
+        }
+
+        .questions-list {
+            list-style: decimal;
+            padding-left: 1.5rem;
+        }
+
+        .questions-list li {
+            padding: 0.5rem 0;
+            font-size: 0.95rem;
+        }
+
+        .glossary-term {
+            margin-bottom: 0.5rem;
+        }
+
+        .glossary-term dt {
+            font-weight: 600;
+            color: var(--blue-700);
+        }
+
+        .glossary-term dd {
+            margin-left: 1rem;
+            font-size: 0.9rem;
+            color: var(--slate-600);
+        }
+
+        .next-steps {
+            background: var(--green-50);
+            border-radius: 8px;
+            padding: 1rem;
+        }
+
+        .next-steps ol {
+            padding-left: 1.5rem;
+        }
+
+        .next-steps li { padding: 0.25rem 0; }
+
+        .footer {
+            margin-top: 2rem;
+            padding-top: 1rem;
+            border-top: 1px solid var(--slate-200);
+            font-size: 0.8rem;
+            color: var(--slate-600);
+            text-align: center;
+        }
+
+        @media print {
+            body { max-width: 100%; padding: 1rem; }
+            .trial-card { break-inside: avoid; }
+        }
+
+        @media (max-width: 640px) {
+            .profile-grid { grid-template-columns: 1fr; }
+            .trial-header { flex-direction: column; }
+            .fit-badge { margin-left: 0; margin-top: 0.5rem; }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Clinical Trial Navigator</h1>
+        <p>Your Personalized Clinical Trial Briefing</p>
+        <p style="color: var(--slate-600); font-size: 0.9rem;">Generated on {{ generated_date }}</p>
+    </header>
+
+    <div class="disclaimer" role="alert">
+        <strong>Important:</strong> This report is for informational purposes only and does not
+        constitute medical advice. All information should be discussed with your healthcare provider
+        before making any decisions about clinical trial participation.
+    </div>
+
+    <section aria-labelledby="summary-heading">
+        <h2 id="summary-heading">Executive Summary</h2>
+        <div class="summary-box">
+            <p>{{ executive_summary }}</p>
+        </div>
+    </section>
+
+    <section aria-labelledby="profile-heading">
+        <h2 id="profile-heading">Your Profile Summary</h2>
+        <p style="font-size: 0.9rem; color: var(--slate-600); margin-bottom: 0.75rem;">
+            Please verify this information is correct. If anything is inaccurate, let us know
+            so we can update your results.
+        </p>
+        <div class="profile-grid">
+            <div class="profile-item">
+                <div class="label">Condition</div>
+                <div class="value">{{ profile.condition.primary_diagnosis }}</div>
+                {% if profile.condition.stage %}
+                <div style="font-size: 0.9rem; color: var(--slate-600);">{{ profile.condition.stage }}{% if profile.condition.subtype %} — {{ profile.condition.subtype }}{% endif %}</div>
+                {% endif %}
+            </div>
+            <div class="profile-item">
+                <div class="label">Location</div>
+                <div class="value">{{ profile.location.description }}</div>
+                <div style="font-size: 0.9rem; color: var(--slate-600);">Within {{ profile.location.max_travel_miles }} miles</div>
+            </div>
+            <div class="profile-item">
+                <div class="label">Demographics</div>
+                <div class="value">
+                    {% if profile.demographics.age %}{{ profile.demographics.age }} years old{% endif %}
+                    {% if profile.demographics.sex %}, {{ profile.demographics.sex }}{% endif %}
+                </div>
+            </div>
+            <div class="profile-item">
+                <div class="label">Preferences</div>
+                <div class="value">
+                    {% if profile.preferences.phases %}Phases: {{ profile.preferences.phases | join(', ') }}{% endif %}
+                </div>
+            </div>
+        </div>
+        {% if profile.treatment_history %}
+        <h3>Treatment History</h3>
+        <ul>
+            {% for tx in profile.treatment_history %}
+            <li>{{ tx.treatment }}{% if tx.response %} — {{ tx.response }}{% endif %}</li>
+            {% endfor %}
+        </ul>
+        {% endif %}
+    </section>
+
+    <section aria-labelledby="trials-heading">
+        <h2 id="trials-heading">Top Trial Matches</h2>
+        {% for trial in matched_trials %}
+        <article class="trial-card" aria-labelledby="trial-{{ trial.nct_id }}">
+            <div class="trial-header">
+                <div class="trial-title" id="trial-{{ trial.nct_id }}">
+                    {{ trial.brief_title }}
+                </div>
+                <span class="fit-badge {% if trial.fit_score >= 70 %}fit-high{% elif trial.fit_score >= 40 %}fit-medium{% else %}fit-low{% endif %}">
+                    {{ trial.fit_score | round }}% fit
+                </span>
+            </div>
+            <div class="trial-meta">
+                <span>{{ trial.nct_id }}</span>
+                <span>{{ trial.phase }}</span>
+                {% if trial.nearest_location and trial.nearest_location.distance_miles %}
+                <span>{{ trial.nearest_location.distance_miles | round }} miles away</span>
+                {% endif %}
+                {% if trial.sponsor %}
+                <span>{{ trial.sponsor }}</span>
+                {% endif %}
+            </div>
+
+            {% if trial.plain_language_summary %}
+            <p style="margin-bottom: 0.75rem;">{{ trial.plain_language_summary }}</p>
+            {% endif %}
+
+            {% if trial.what_to_expect %}
+            <h3>What to Expect</h3>
+            <p style="margin-bottom: 0.75rem;">{{ trial.what_to_expect }}</p>
+            {% endif %}
+
+            {% if trial.inclusion_scores or trial.exclusion_scores %}
+            <h3>Eligibility Analysis</h3>
+            <ul class="eligibility-list">
+                {% for score in trial.inclusion_scores %}
+                <li><span class="icon">{{ score.icon }}</span> {{ score.plain_language or score.explanation }}</li>
+                {% endfor %}
+                {% for score in trial.exclusion_scores %}
+                <li><span class="icon">{{ score.icon }}</span> {{ score.plain_language or score.explanation }}</li>
+                {% endfor %}
+            </ul>
+            {% endif %}
+
+            {% if trial.nearest_location %}
+            <h3>Nearest Location</h3>
+            <p style="font-size: 0.9rem;">
+                {{ trial.nearest_location.facility }}{% if trial.nearest_location.city %}, {{ trial.nearest_location.city }}{% endif %}{% if trial.nearest_location.state %}, {{ trial.nearest_location.state }}{% endif %}
+                {% if trial.nearest_location.contact_phone %}<br>Phone: {{ trial.nearest_location.contact_phone }}{% endif %}
+                {% if trial.nearest_location.contact_email %}<br>Email: {{ trial.nearest_location.contact_email }}{% endif %}
+            </p>
+            {% endif %}
+
+            {% if trial.adverse_events %}
+            <h3>Known Side Effects</h3>
+            <p style="font-size: 0.9rem; color: var(--slate-600);">
+                Most commonly reported: {{ trial.adverse_events[:5] | join(', ') }}
+            </p>
+            {% endif %}
+        </article>
+        {% endfor %}
+    </section>
+
+    {% if comparison_table %}
+    <section aria-labelledby="comparison-heading">
+        <h2 id="comparison-heading">Trial Comparison</h2>
+        <div style="overflow-x: auto;">
+            <table>
+                <thead>
+                    <tr>
+                        <th scope="col">Trial</th>
+                        <th scope="col">Phase</th>
+                        <th scope="col">Fit Score</th>
+                        <th scope="col">Distance</th>
+                        <th scope="col">Enrollment</th>
+                        <th scope="col">Interventions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for trial in matched_trials %}
+                    <tr>
+                        <td>{{ trial.brief_title | truncate(50) }}</td>
+                        <td>{{ trial.phase }}</td>
+                        <td>{{ trial.fit_score | round }}%</td>
+                        <td>{% if trial.nearest_location and trial.nearest_location.distance_miles %}{{ trial.nearest_location.distance_miles | round }} mi{% else %}N/A{% endif %}</td>
+                        <td>{{ trial.enrollment_count or 'N/A' }}</td>
+                        <td>{{ trial.interventions | join(', ') }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+    {% endif %}
+
+    {% if doctor_questions %}
+    <section aria-labelledby="questions-heading">
+        <h2 id="questions-heading">Questions for Your Doctor</h2>
+        <p style="font-size: 0.9rem; color: var(--slate-600); margin-bottom: 0.5rem;">
+            Consider asking your healthcare provider these questions at your next appointment:
+        </p>
+        <ol class="questions-list">
+            {% for question in doctor_questions %}
+            <li>{{ question }}</li>
+            {% endfor %}
+        </ol>
+    </section>
+    {% endif %}
+
+    <section aria-labelledby="nextsteps-heading">
+        <h2 id="nextsteps-heading">Next Steps</h2>
+        <div class="next-steps">
+            <ol>
+                <li><strong>Review this report</strong> — Make sure the information matches your understanding of your condition</li>
+                <li><strong>Share with your doctor</strong> — Bring this report to your next appointment and discuss which trials might be right for you</li>
+                <li><strong>Contact trial sites</strong> — If your doctor agrees a trial is a good fit, contact the trial site using the information provided</li>
+                <li><strong>Ask questions</strong> — Before enrolling, make sure you understand the study protocol, risks, and time commitment</li>
+            </ol>
+        </div>
+    </section>
+
+    {% if glossary %}
+    <section aria-labelledby="glossary-heading">
+        <h2 id="glossary-heading">Glossary</h2>
+        <dl>
+            {% for term in glossary %}
+            <div class="glossary-term">
+                <dt>{{ term.term }}</dt>
+                <dd>{{ term.definition }}</dd>
+            </div>
+            {% endfor %}
+        </dl>
+    </section>
+    {% endif %}
+
+    <footer class="footer">
+        <p>Generated by Clinical Trial Navigator — an AI-powered research tool</p>
+        <p>This tool does not replace professional medical advice. Always consult with your healthcare provider.</p>
+        <p>Data sourced from ClinicalTrials.gov and openFDA</p>
+    </footer>
+</body>
+</html>

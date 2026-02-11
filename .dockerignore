@@ -1,0 +1,9 @@
+.git
+.env
+sessions/
+node_modules/
+.next/
+__pycache__/
+*.pyc
+.venv/
+.clinical-trial-copilot/

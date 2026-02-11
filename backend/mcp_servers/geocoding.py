@@ -14,11 +14,7 @@ import httpx
 
 logger = logging.getLogger(__name__)
 
-_client = httpx.AsyncClient(
-    base_url="https://geocoding-api.open-meteo.com/v1",
-    timeout=30.0,
-    headers={"Accept": "application/json"},
-)
+_GEOCODING_BASE = "https://geocoding-api.open-meteo.com/v1"
 
 _EARTH_RADIUS_MILES = 3958.8
 
@@ -43,21 +39,26 @@ async def geocode_location(location_string: str) -> dict | None:
             queries.append(city_part)
 
         results = None
-        for query in queries:
-            response = await _client.get(
-                "/search",
-                params={
-                    "name": query,
-                    "count": 5,
-                    "language": "en",
-                    "format": "json",
-                },
-            )
-            response.raise_for_status()
-            data = response.json()
-            results = data.get("results")
-            if results:
-                break
+        async with httpx.AsyncClient(
+            base_url=_GEOCODING_BASE,
+            timeout=30.0,
+            headers={"Accept": "application/json"},
+        ) as client:
+            for query in queries:
+                response = await client.get(
+                    "/search",
+                    params={
+                        "name": query,
+                        "count": 5,
+                        "language": "en",
+                        "format": "json",
+                    },
+                )
+                response.raise_for_status()
+                data = response.json()
+                results = data.get("results")
+                if results:
+                    break
 
         if not results:
             logger.info("No geocoding results for query: %r", location_string)

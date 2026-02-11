@@ -1,16 +1,25 @@
 from __future__ import annotations
 
+import os
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, Response
 
 from backend.session import SessionManager
 
 app = FastAPI(title="Clinical Trial Navigator", version="0.1.0")
 
+origins = [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+]
+if os.environ.get("FRONTEND_URL"):
+    origins.append(os.environ["FRONTEND_URL"])
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -60,6 +69,20 @@ async def get_report(session_id: str):
     if html is None:
         return JSONResponse({"error": "Report not yet generated"}, status_code=404)
     return HTMLResponse(html)
+
+
+@app.get("/api/sessions/{session_id}/report.pdf")
+async def get_report_pdf(session_id: str):
+    html = session_mgr.get_report(session_id)
+    if html is None:
+        return JSONResponse({"error": "Report not yet generated"}, status_code=404)
+    from backend.report.pdf_generator import generate_pdf
+    pdf_bytes = await generate_pdf(html)
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename=trial-report-{session_id[:8]}.pdf"},
+    )
 
 
 # WebSocket endpoint is registered in websocket.py

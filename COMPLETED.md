@@ -40,3 +40,14 @@
 - [x] Demo script
 - [x] README.md for submission
 - [x] Frontend builds cleanly (TypeScript passes)
+
+## Phase 6: Testing, PDF, Deployment
+- [x] Test with 3+ diverse conditions (NSCLC, Type 2 Diabetes, Ewing Sarcoma) — 26/26 tests pass
+- [x] Demo profiles for all 3 conditions (demo/demo_profiles.json)
+- [x] Updated demo script with multi-condition scenarios
+- [x] PDF report generation via Playwright (backend/report/pdf_generator.py)
+- [x] PDF download endpoint (/api/sessions/{id}/report.pdf)
+- [x] Deployment configs: Dockerfile, frontend/Dockerfile, fly.toml, docker-compose.yml
+- [x] .dockerignore files for backend and frontend
+- [x] Dynamic CORS origins with FRONTEND_URL env var
+- [x] Fixed httpx AsyncClient event loop bug in geocoding.py and fda_data.py (module-level client → per-request client)

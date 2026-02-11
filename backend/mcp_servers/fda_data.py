@@ -16,11 +16,7 @@ from backend.config import settings
 
 logger = logging.getLogger(__name__)
 
-_client = httpx.AsyncClient(
-    base_url="https://api.fda.gov",
-    timeout=30.0,
-    headers={"Accept": "application/json"},
-)
+_FDA_BASE = "https://api.fda.gov"
 
 
 def _api_key_params() -> dict[str, str]:
@@ -55,9 +51,13 @@ async def get_adverse_events(
             **_api_key_params(),
         }
 
-        response = await _client.get("/drug/event.json", params=params)
-        response.raise_for_status()
-        data = response.json()
+        async with httpx.AsyncClient(
+            base_url=_FDA_BASE, timeout=30.0,
+            headers={"Accept": "application/json"},
+        ) as client:
+            response = await client.get("/drug/event.json", params=params)
+            response.raise_for_status()
+            data = response.json()
 
         results = data.get("results", [])
         return [
@@ -115,9 +115,13 @@ async def get_drug_label(drug_name: str) -> dict | None:
             **_api_key_params(),
         }
 
-        response = await _client.get("/drug/label.json", params=params)
-        response.raise_for_status()
-        data = response.json()
+        async with httpx.AsyncClient(
+            base_url=_FDA_BASE, timeout=30.0,
+            headers={"Accept": "application/json"},
+        ) as client:
+            response = await client.get("/drug/label.json", params=params)
+            response.raise_for_status()
+            data = response.json()
 
         results = data.get("results")
         if not results:

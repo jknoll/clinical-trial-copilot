@@ -26,7 +26,8 @@ Built for the **"Built with Opus 4.6" Hackathon** (Cerebral Valley x Anthropic, 
 - **Multi-phase agent architecture** — Intake → Search → Matching → Selection → Report → Follow-up
 - **ClinicalTrials.gov API v2** — Real-time search with geographic filtering and pagination
 - **openFDA API** — Adverse event data and drug labels
-- **WCAG AA accessible** HTML report generation with Jinja2
+- **WCAG AA accessible** HTML + PDF report generation (Jinja2 + Playwright)
+- **Tested with diverse conditions** — NSCLC, Type 2 Diabetes, Ewing Sarcoma (rare disease)
 
 ## Quick Start
 
@@ -49,13 +50,27 @@ npm run dev
 
 Open http://localhost:3000 and start chatting.
 
+### Docker
+
+```bash
+docker compose up --build
+```
+
+### Deploy to Fly.io
+
+```bash
+fly launch  # first time
+fly deploy   # subsequent deploys
+fly secrets set ANTHROPIC_API_KEY=sk-ant-...
+```
+
 ## How It Works
 
 1. **Intake** — Claude conducts an empathetic interview, gathering condition, treatment history, location, demographics, and preferences one question at a time.
 2. **Search** — Multiple search strategies query ClinicalTrials.gov in real-time, with geographic filtering and deduplication.
 3. **Matching** — Each trial's eligibility criteria are evaluated against the patient profile, scored, and translated to 8th-grade reading level.
 4. **Selection** — Patients review ranked trials with fit scores and select ones to explore further.
-5. **Report** — A comprehensive, printable HTML report is generated with trial summaries, eligibility checklists, comparison tables, questions for the doctor, and a glossary.
+5. **Report** — A comprehensive, printable HTML/PDF report is generated with trial summaries, eligibility checklists, comparison tables, questions for the doctor, and a glossary.
 
 ## Safety
 
@@ -73,7 +88,7 @@ backend/
   agents/skills/            — Medical translation and eligibility analysis
   mcp_servers/              — ClinicalTrials.gov, openFDA, geocoding API wrappers
   models/                   — Pydantic models (patient, trial, session)
-  report/                   — Jinja2 HTML report generator
+  report/                   — Jinja2 HTML + Playwright PDF report generator
   main.py                   — FastAPI app
   websocket.py              — WebSocket chat handler
 
@@ -83,8 +98,18 @@ frontend/
   app/                      — Next.js app router pages
 ```
 
+## Testing
+
+```bash
+pip install -e ".[dev]"
+pytest tests/ -v
+```
+
+26 tests cover 3 diverse conditions (NSCLC, Type 2 Diabetes, Ewing Sarcoma) against live APIs.
+
 ## Requirements
 
 - Python 3.11+
 - Node.js 18+
 - Anthropic API key (Claude Opus 4.6)
+- Playwright + Chromium (for PDF export): `playwright install chromium`

@@ -1,0 +1,123 @@
+[
+  {
+    "name": "NSCLC Patient",
+    "description": "62-year-old male with stage IIIA NSCLC in Lompoc, CA",
+    "condition": {
+      "primary_diagnosis": "Non-small cell lung cancer",
+      "stage": "Stage IIIA",
+      "subtype": "Adenocarcinoma",
+      "biomarkers": ["EGFR mutation negative", "PD-L1 TPS 60%"],
+      "date_of_diagnosis": "2025-10"
+    },
+    "treatment_history": [
+      {
+        "treatment": "Carboplatin + Pemetrexed",
+        "type": "chemotherapy",
+        "cycles_completed": 4,
+        "response": "partial response",
+        "end_date": "2026-01"
+      }
+    ],
+    "demographics": {
+      "age": 62,
+      "sex": "male",
+      "estimated_ecog": 1
+    },
+    "location": {
+      "description": "Lompoc, CA",
+      "latitude": 34.6392,
+      "longitude": -120.4579,
+      "max_travel_miles": 200,
+      "open_to_virtual": true
+    },
+    "preferences": {
+      "trial_types": ["treatment"],
+      "phases": ["PHASE2", "PHASE3"],
+      "placebo_acceptable": true,
+      "intervention_interests": ["immunotherapy"]
+    }
+  },
+  {
+    "name": "Type 2 Diabetes Patient",
+    "description": "55-year-old female with Type 2 Diabetes in Houston, TX",
+    "condition": {
+      "primary_diagnosis": "Type 2 Diabetes Mellitus",
+      "stage": "",
+      "subtype": "",
+      "biomarkers": ["HbA1c 8.2%"],
+      "date_of_diagnosis": "2021-03"
+    },
+    "treatment_history": [
+      {
+        "treatment": "Metformin",
+        "type": "oral medication",
+        "cycles_completed": null,
+        "response": "partial response",
+        "end_date": ""
+      },
+      {
+        "treatment": "Semaglutide (Ozempic)",
+        "type": "GLP-1 receptor agonist",
+        "cycles_completed": null,
+        "response": "partial response",
+        "end_date": ""
+      }
+    ],
+    "demographics": {
+      "age": 55,
+      "sex": "female",
+      "estimated_ecog": 0
+    },
+    "location": {
+      "description": "Houston, TX",
+      "latitude": 29.7604,
+      "longitude": -95.3698,
+      "max_travel_miles": 100,
+      "open_to_virtual": true
+    },
+    "preferences": {
+      "trial_types": ["treatment"],
+      "phases": ["PHASE2", "PHASE3"],
+      "placebo_acceptable": false,
+      "intervention_interests": ["GLP-1", "insulin", "oral medication"]
+    }
+  },
+  {
+    "name": "Ewing Sarcoma Patient",
+    "description": "17-year-old male with Ewing Sarcoma in Boston, MA",
+    "condition": {
+      "primary_diagnosis": "Ewing Sarcoma",
+      "stage": "Localized",
+      "subtype": "Ewing sarcoma of the femur",
+      "biomarkers": ["EWSR1-FLI1 fusion positive"],
+      "date_of_diagnosis": "2025-06"
+    },
+    "treatment_history": [
+      {
+        "treatment": "VDC/IE (Vincristine, Doxorubicin, Cyclophosphamide / Ifosfamide, Etoposide)",
+        "type": "chemotherapy",
+        "cycles_completed": 6,
+        "response": "partial response",
+        "end_date": "2025-12"
+      }
+    ],
+    "demographics": {
+      "age": 17,
+      "sex": "male",
+      "estimated_ecog": 1
+    },
+    "location": {
+      "description": "Boston, MA",
+      "latitude": 42.3601,
+      "longitude": -71.0589,
+      "max_travel_miles": 500,
+      "open_to_virtual": true
+    },
+    "preferences": {
+      "trial_types": ["treatment"],
+      "phases": ["PHASE1", "PHASE2"],
+      "placebo_acceptable": false,
+      "intervention_interests": ["targeted therapy", "immunotherapy", "combination therapy"]
+    }
+  }
+]

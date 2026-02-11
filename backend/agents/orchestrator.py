@@ -582,11 +582,13 @@ class AgentOrchestrator:
                 state.report_generated = True
                 self.session_mgr.save_state(self.session_id, state)
                 report_url = f"/api/sessions/{self.session_id}/report"
+                pdf_url = f"/api/sessions/{self.session_id}/report.pdf"
                 self._pending_emissions.append({
                     "type": "report_ready",
                     "url": report_url,
+                    "pdf_url": pdf_url,
                 })
-                return json.dumps({"status": "generated", "url": report_url})
+                return json.dumps({"status": "generated", "url": report_url, "pdf_url": pdf_url})
 
             else:
                 return json.dumps({"error": f"Unknown tool: {tool_name}"})

@@ -529,8 +529,8 @@ export function Chat({ sessionId, onFiltersChanged, detectedLocation, zeroResult
 
   return (
     <div className="flex flex-col h-full">
-      {/* Health import card — shown during intake phase before import */}
-      {currentPhase === "intake" && !healthImported && (
+      {/* Health import card — shown during intake phase; component handles its own collapse/badge */}
+      {currentPhase === "intake" && (
         <HealthImport sessionId={sessionId} onImported={onHealthImported} />
       )}
 

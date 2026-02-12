@@ -131,9 +131,9 @@ def _build_import_summary(hk: HealthKitImport, ecog: int | None) -> dict:
     """Return a JSON-serialisable summary dict for a HealthKitImport."""
     return {
         "status": "ok",
-        "labs_imported": len(hk.lab_results),
-        "vitals_imported": len(hk.vitals),
-        "medications_imported": len(hk.medications),
+        "lab_count": len(hk.lab_results),
+        "vital_count": len(hk.vitals),
+        "medication_count": len(hk.medications),
         "activity_steps_per_day": hk.activity_steps_per_day,
         "activity_active_minutes_per_day": hk.activity_active_minutes_per_day,
         "estimated_ecog": ecog,

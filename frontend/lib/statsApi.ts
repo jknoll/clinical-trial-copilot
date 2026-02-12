@@ -33,6 +33,18 @@ export async function reverseGeocode(
   return res.json();
 }
 
+export async function forwardGeocode(
+  location: string
+): Promise<{ latitude: number; longitude: number; display: string }> {
+  const res = await fetch(`${API_URL}/api/stats/geo/forward`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ location }),
+  });
+  if (!res.ok) throw new Error(`Forward geocode failed: ${res.status}`);
+  return res.json();
+}
+
 export async function fetchStats(filters: FacetedFilters): Promise<StatsData> {
   const res = await fetch(`${API_URL}/api/stats/query`, {
     method: "POST",

@@ -66,18 +66,11 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                 user_content = f"[System: {data.get('content', '')}]"
             elif msg_type == "message":
                 user_content = data.get("content", "")
-                # Attach browser-detected location context if present
+                # Store browser-detected location on the orchestrator so it persists
+                # in the system prompt across the entire conversation
                 location_ctx = data.get("location_context")
                 if location_ctx:
-                    display = location_ctx.get("display", "Unknown")
-                    lat = location_ctx.get("latitude", "")
-                    lon = location_ctx.get("longitude", "")
-                    user_content = (
-                        f"[System note: Browser detected user location as {display} "
-                        f"({lat}, {lon}). Please confirm this with the user during intake "
-                        f"and allow them to specify a different location if they prefer.]\n\n"
-                        f"{user_content}"
-                    )
+                    orchestrator._detected_location = location_ctx
             elif msg_type == "widget_response":
                 # Format widget response with the question context for the agent
                 selections = data.get("selections", [])

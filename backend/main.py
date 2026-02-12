@@ -2,12 +2,17 @@ from __future__ import annotations
 
 import logging
 import os
+import tempfile
+from datetime import datetime, timezone
+from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, File, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse, Response
+from fastapi.staticfiles import StaticFiles
 
 from backend.config import settings
+from backend.models.patient import HealthKitImport
 from backend.session import SessionManager
 
 logger = logging.getLogger(__name__)
@@ -116,6 +121,130 @@ async def get_report_pdf(session_id: str):
         else:
             fallback_html = banner + html
         return HTMLResponse(content=fallback_html)
+
+
+# ---------------------------------------------------------------------------
+# Apple Health Import endpoints
+# ---------------------------------------------------------------------------
+
+def _build_import_summary(hk: HealthKitImport, ecog: int | None) -> dict:
+    """Return a JSON-serialisable summary dict for a HealthKitImport."""
+    return {
+        "status": "ok",
+        "labs_imported": len(hk.lab_results),
+        "vitals_imported": len(hk.vitals),
+        "medications_imported": len(hk.medications),
+        "activity_steps_per_day": hk.activity_steps_per_day,
+        "activity_active_minutes_per_day": hk.activity_active_minutes_per_day,
+        "estimated_ecog": ecog,
+        "import_date": hk.import_date,
+        "source_file": hk.source_file,
+    }
+
+
+def _merge_health_kit(session_id: str, hk: HealthKitImport) -> dict:
+    """Merge a HealthKitImport into the session profile and return a summary."""
+    from backend.mcp_servers.apple_health import estimate_ecog_from_steps
+
+    profile = session_mgr.get_profile(session_id)
+    profile.health_kit = hk
+
+    # Auto-populate ECOG from step data if available
+    ecog_estimate: int | None = None
+    if hk.activity_steps_per_day is not None:
+        ecog_estimate = estimate_ecog_from_steps(hk.activity_steps_per_day)
+        profile.demographics.estimated_ecog = ecog_estimate
+
+    session_mgr.save_profile(session_id, profile)
+    return _build_import_summary(hk, ecog_estimate)
+
+
+@app.post("/api/sessions/{session_id}/health-import")
+async def health_import(
+    session_id: str,
+    use_dummy: bool = False,
+    file: UploadFile | None = File(default=None),
+):
+    """Import Apple Health data from a ZIP file upload or the built-in dummy export."""
+    import zipfile
+
+    from backend.mcp_servers.apple_health import parse_apple_health_xml
+
+    # Validate session exists (raises ValueError if not)
+    session_mgr.session_dir(session_id)
+
+    if use_dummy:
+        # Use the bundled dummy HealthKit export
+        dummy_path = Path(__file__).parent / "static" / "dummy_healthkit_export.zip"
+        if not dummy_path.exists():
+            return JSONResponse(
+                {"error": "Dummy HealthKit export not found at backend/static/dummy_healthkit_export.zip"},
+                status_code=404,
+            )
+        with zipfile.ZipFile(dummy_path, "r") as zf:
+            # Look for export.xml inside the ZIP
+            xml_names = [n for n in zf.namelist() if n.endswith(".xml")]
+            if not xml_names:
+                return JSONResponse({"error": "No XML file found in dummy ZIP"}, status_code=400)
+            with zf.open(xml_names[0]) as xml_stream:
+                hk = parse_apple_health_xml(xml_stream, zip_file=zf)
+        hk.source_file = "dummy_healthkit_export.zip"
+        if not hk.import_date:
+            hk.import_date = datetime.now(timezone.utc).isoformat()
+
+        summary = _merge_health_kit(session_id, hk)
+        return summary
+
+    # File upload path
+    if file is None:
+        return JSONResponse(
+            {"error": "Provide a file upload or set ?use_dummy=true"},
+            status_code=400,
+        )
+
+    # Save upload to a temp file so the ZIP can be opened by path
+    suffix = Path(file.filename or "upload.zip").suffix or ".zip"
+    with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
+        tmp_path = Path(tmp.name)
+        contents = await file.read()
+        tmp.write(contents)
+
+    try:
+        with zipfile.ZipFile(tmp_path, "r") as zf:
+            xml_names = [n for n in zf.namelist() if n.endswith(".xml")]
+            if not xml_names:
+                return JSONResponse({"error": "No XML file found in uploaded ZIP"}, status_code=400)
+            with zf.open(xml_names[0]) as xml_stream:
+                hk = parse_apple_health_xml(xml_stream, zip_file=zf)
+        hk.source_file = file.filename or "upload.zip"
+        if not hk.import_date:
+            hk.import_date = datetime.now(timezone.utc).isoformat()
+
+        summary = _merge_health_kit(session_id, hk)
+        return summary
+    finally:
+        tmp_path.unlink(missing_ok=True)
+
+
+@app.post("/api/sessions/{session_id}/health-import-json")
+async def health_import_json(session_id: str, hk: HealthKitImport):
+    """Import Apple Health data from a JSON payload matching the HealthKitImport schema."""
+    # Validate session exists (raises ValueError if not)
+    session_mgr.session_dir(session_id)
+
+    if not hk.import_date:
+        hk.import_date = datetime.now(timezone.utc).isoformat()
+
+    summary = _merge_health_kit(session_id, hk)
+    return summary
+
+
+# ---------------------------------------------------------------------------
+# Static files
+# ---------------------------------------------------------------------------
+_static_dir = Path(__file__).parent / "static"
+_static_dir.mkdir(parents=True, exist_ok=True)
+app.mount("/static", StaticFiles(directory=str(_static_dir)), name="static")
 
 
 # Stats API (direct REST, not through Claude)

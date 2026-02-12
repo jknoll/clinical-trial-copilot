@@ -45,3 +45,21 @@ This skill provides rules for scoring clinical trial eligibility criteria agains
 ## Hard Exclusion Flag
 
 If any single LIKELY NOT MET criterion is a hard exclusion (absolute age cutoff, wrong cancer type, excluded diagnosis), flag the entire trial as "Likely Ineligible" with an explanation. Still include the trial in results if the patient might want to discuss it with their doctor, but rank it below trials without hard exclusion flags.
+
+## Rules When Apple Health Data Is Available
+
+When the patient profile includes `health_kit` data (imported from Apple Health), use these enhanced scoring rules:
+
+11. **ECOG from step data:** If `health_kit.activity_steps_per_day` is present, use step-based ECOG estimate instead of self-reported. Note: "Based on your Apple Health activity data (avg X steps/day), estimated ECOG is Y." Score as LIKELY MET or LIKELY NOT MET accordingly.
+
+12. **Lab-based criteria:** If matching lab result exists in `health_kit.lab_results`:
+    - Score as LIKELY MET or LIKELY NOT MET with the actual value
+    - Note the date: "as of [date]"
+    - Flag as NEEDS DISCUSSION if lab is >90 days old
+    - Common mappings: creatinine → renal function, hemoglobin → anemia criteria, ANC → neutrophil count, platelets → thrombocytopenia criteria, AST/ALT/bilirubin → liver function
+
+13. **Washout periods with medication dates:** If `health_kit.medications` includes a relevant drug with `end_date`, calculate days since last dose and compare against trial washout requirement. Score LIKELY MET if sufficient, LIKELY NOT MET if too recent, NEEDS DISCUSSION if borderline.
+
+14. **BMI criteria:** If weight and height vitals exist, calculate BMI = weight_kg / height_m². Score against trial BMI requirements.
+
+15. **Active medication contraindications:** Cross-reference active medications (is_active=true) against trial exclusion criteria. Example: "no concurrent ACE inhibitors" vs. active Lisinopril → flag as NEEDS DISCUSSION.

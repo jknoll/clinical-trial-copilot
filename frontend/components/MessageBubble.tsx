@@ -35,7 +35,12 @@ function renderMarkdown(text: string) {
   };
 
   const boldify = (s: string) =>
-    s.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>");
+    s
+      .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
+      .replace(
+        /\b(NCT\d{7,8})\b/g,
+        '<a href="https://clinicaltrials.gov/study/$1" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:underline">$1</a>'
+      );
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
@@ -143,7 +148,7 @@ export function MessageBubble({ message, onWidgetSubmit, onTrialSelection }: Pro
     const rawUrl = (message.metadata?.url as string) || "";
     const url = rawUrl.startsWith("/") ? `${API_URL}${rawUrl}` : rawUrl || "#";
     const rawPdfUrl = (message.metadata?.pdf_url as string) || "";
-    const pdfUrl = rawPdfUrl.startsWith("/") ? `${API_URL}${rawPdfUrl}` : rawPdfUrl;
+    const pdfUrl = rawPdfUrl ? (rawPdfUrl.startsWith("/") ? `${API_URL}${rawPdfUrl}` : rawPdfUrl) : "";
     return (
       <div className="chat-bubble-assistant">
         <div className="flex items-center gap-3">

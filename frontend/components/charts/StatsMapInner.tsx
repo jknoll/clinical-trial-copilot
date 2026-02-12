@@ -68,7 +68,7 @@ interface Props {
 function MapFlyTo({ target }: { target: { lat: number; lon: number } | null }) {
   const map = useMap();
   useEffect(() => {
-    if (target) map.flyTo([target.lat, target.lon], 6, { duration: 1.5 });
+    if (target) map.flyTo([target.lat, target.lon], 5, { duration: 1.5 });
   }, [target, map]);
   return null;
 }

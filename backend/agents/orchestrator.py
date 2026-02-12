@@ -492,6 +492,15 @@ TOOLS: list[dict[str, Any]] = [
             },
         },
     },
+    {
+        "name": "get_health_import_summary",
+        "description": "Get a summary of the patient's imported Apple Health data, including lab results, vitals, medications, and activity levels. Returns null if no health data has been imported. Use this during eligibility analysis to access objective health measurements.",
+        "input_schema": {
+            "type": "object",
+            "properties": {},
+            "required": []
+        }
+    },
 ]
 
 
@@ -506,6 +515,7 @@ class AgentOrchestrator:
         self._pending_emissions: list[dict[str, Any]] = []
         self._intake_answers: dict[str, str] = {}
         self._free_text_counter: int = 0
+        self._detected_location: dict[str, Any] | None = None
 
     def _extract_intake_answer(self, user_message: str) -> None:
         """Parse structured widget responses and free-text messages during intake.
@@ -686,13 +696,39 @@ class AgentOrchestrator:
                 state.report_generated = True
                 self.session_mgr.save_state(self.session_id, state)
                 report_url = f"/api/sessions/{self.session_id}/report"
-                pdf_url = f"/api/sessions/{self.session_id}/report.pdf"
-                self._pending_emissions.append({
+                emission: dict[str, Any] = {
                     "type": "report_ready",
                     "url": report_url,
-                    "pdf_url": pdf_url,
+                }
+                result_data: dict[str, Any] = {"status": "generated", "url": report_url}
+                # Only advertise PDF if Playwright is available
+                try:
+                    from backend.report.pdf_generator import check_playwright_browsers
+                    if check_playwright_browsers():
+                        pdf_url = f"/api/sessions/{self.session_id}/report.pdf"
+                        emission["pdf_url"] = pdf_url
+                        result_data["pdf_url"] = pdf_url
+                except Exception:
+                    pass
+                self._pending_emissions.append(emission)
+                return json.dumps(result_data)
+
+            elif tool_name == "get_health_import_summary":
+                profile = self.session_mgr.get_profile(self.session_id)
+                hk = profile.health_kit
+                if not hk.lab_results and not hk.vitals and not hk.medications and hk.activity_steps_per_day is None:
+                    return json.dumps({"imported": False, "message": "No health data imported"})
+                from backend.mcp_servers.apple_health import estimate_ecog_from_steps
+                return json.dumps({
+                    "imported": True,
+                    "lab_results": [lr.model_dump() for lr in hk.lab_results],
+                    "vitals": [v.model_dump() for v in hk.vitals],
+                    "medications": [m.model_dump() for m in hk.medications],
+                    "activity_steps_per_day": hk.activity_steps_per_day,
+                    "activity_active_minutes_per_day": hk.activity_active_minutes_per_day,
+                    "estimated_ecog": estimate_ecog_from_steps(hk.activity_steps_per_day) if hk.activity_steps_per_day else None,
+                    "import_date": hk.import_date,
                 })
-                return json.dumps({"status": "generated", "url": report_url, "pdf_url": pdf_url})
 
             else:
                 return json.dumps({"error": f"Unknown tool: {tool_name}"})
@@ -769,6 +805,15 @@ class AgentOrchestrator:
                 messages=self.conversation_history,
             ) as stream:
                 current_tool_use = None
+                _tool_json_len = 0  # Track JSON size for progress updates
+
+                # Map tool names to user-friendly status messages
+                _TOOL_STATUS = {
+                    "save_matched_trials": ("matching", "Compiling detailed trial analysis..."),
+                    "generate_report": ("report", "Building your personalized report..."),
+                    "save_patient_profile": ("intake", "Saving your profile..."),
+                    "search_trials": ("search", "Preparing search..."),
+                }
 
                 async for event in stream:
                     if event.type == "content_block_start":
@@ -781,6 +826,11 @@ class AgentOrchestrator:
                                     "name": event.content_block.name,
                                     "input_json": "",
                                 }
+                                _tool_json_len = 0
+                                # Emit status when tool generation starts
+                                status = _TOOL_STATUS.get(event.content_block.name)
+                                if status:
+                                    yield {"type": "status", "phase": status[0], "message": status[1]}
 
                     elif event.type == "content_block_delta":
                         if hasattr(event.delta, "text"):
@@ -789,6 +839,14 @@ class AgentOrchestrator:
                         elif hasattr(event.delta, "partial_json"):
                             if current_tool_use is not None:
                                 current_tool_use["input_json"] += event.delta.partial_json
+                                _tool_json_len += len(event.delta.partial_json)
+                                # Emit progress for large tool outputs (every ~10KB)
+                                if _tool_json_len > 10000 and _tool_json_len % 10000 < len(event.delta.partial_json):
+                                    kb = _tool_json_len // 1024
+                                    name = current_tool_use["name"]
+                                    status = _TOOL_STATUS.get(name)
+                                    if status:
+                                        yield {"type": "status", "phase": status[0], "message": f"{status[1]} ({kb}KB processed)"}
 
                     elif event.type == "content_block_stop":
                         if current_tool_use is not None:
@@ -858,6 +916,13 @@ class AgentOrchestrator:
                         "phase": "fda_lookup",
                         "message": f"Looking up FDA data for {tu['input'].get('drug_name', '')}...",
                     }
+                elif tu["name"] == "save_matched_trials":
+                    trial_count = len(tu["input"].get("trials", []))
+                    yield {
+                        "type": "status",
+                        "phase": "matching",
+                        "message": f"Saving {trial_count} matched trials...",
+                    }
                 elif tu["name"] == "generate_report":
                     yield {
                         "type": "status",
@@ -904,6 +969,14 @@ class AgentOrchestrator:
         parts.append(f"Matching complete: {state.matching_complete}")
         parts.append(f"Report generated: {state.report_generated}")
 
+        if self._detected_location:
+            loc = self._detected_location
+            parts.append(
+                f"\nBrowser-detected location: {loc.get('display', 'Unknown')} "
+                f"(lat {loc.get('latitude', '')}, lon {loc.get('longitude', '')}). "
+                f"During intake, confirm this with the user and allow them to override."
+            )
+
         # During intake, inject all collected answers so they survive history trimming
         if self._intake_answers and not state.profile_complete:
             answers_section = "\nCollected Patient Answers (use these when compiling the profile):"
@@ -918,6 +991,11 @@ class AgentOrchestrator:
             try:
                 profile = self.session_mgr.get_profile(self.session_id)
                 parts.append(f"\nPatient profile:\n{json.dumps(profile.model_dump(), indent=2, default=str)}")
+                hk = profile.health_kit
+                if hk.lab_results or hk.vitals or hk.medications or hk.activity_steps_per_day:
+                    parts.append(f"\nApple Health data imported: {len(hk.lab_results)} lab results, "
+                                 f"{len(hk.vitals)} vitals, {len(hk.medications)} medications, "
+                                 f"avg steps/day: {hk.activity_steps_per_day}")
             except Exception:
                 pass
 

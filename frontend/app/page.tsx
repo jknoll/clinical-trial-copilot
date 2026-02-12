@@ -3,9 +3,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Chat } from "@/components/Chat";
 import { StatsPanel } from "@/components/StatsPanel";
+import { ImportSummary } from "@/components/HealthImport";
 import { BarChart3, FileText, Shield } from "lucide-react";
 import { FacetedFilters, ActiveFilter, StatsData } from "@/lib/types";
-import { fetchStats, reverseGeocode, fetchTopConditions, ConditionCount } from "@/lib/statsApi";
+import { fetchStats, reverseGeocode, forwardGeocode, fetchTopConditions, ConditionCount } from "@/lib/statsApi";
 import { requestGeolocation, UserLocation } from "@/lib/geolocation";
 
 interface DetectedLocation {
@@ -43,6 +44,8 @@ export default function Home() {
   const [mapFlyTo, setMapFlyTo] = useState<{ lat: number; lon: number } | null>(null);
   const demoRef = useRef<(() => void) | null>(null);
   const [reportUrls, setReportUrls] = useState<{ html: string; pdf: string } | null>(null);
+  const [healthImported, setHealthImported] = useState(false);
+  const [healthSummary, setHealthSummary] = useState<ImportSummary | null>(null);
 
   // Track ongoing fetch to debounce
   const fetchAbortRef = useRef<AbortController | null>(null);
@@ -68,31 +71,35 @@ export default function Home() {
     fetchTopConditions().then(setTopConditions).catch(() => {});
   }, []);
 
-  // Request geolocation on mount and reverse-geocode for display
+  // Request geolocation AFTER consent — browser prompt is more visible and intentional
   useEffect(() => {
+    if (!consentGiven) return;
     requestGeolocation().then(async (loc) => {
       if (loc) {
         setUserLocation(loc);
+        // Reverse geocode directly from the browser to avoid server rate limits
         try {
-          const geo = await reverseGeocode(loc.latitude, loc.longitude);
-          setDetectedLocation({
-            display: geo.display,
-            latitude: loc.latitude,
-            longitude: loc.longitude,
-          });
-          setMapFlyTo({ lat: loc.latitude, lon: loc.longitude });
+          const res = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?lat=${loc.latitude}&lon=${loc.longitude}&format=json&zoom=10`,
+            { headers: { "Accept": "application/json" } }
+          );
+          const data = await res.json();
+          const addr = data.address || {};
+          const city = addr.city || addr.town || addr.village || addr.county || "";
+          const state = addr.state || "";
+          const display = [city, state].filter(Boolean).join(", ") || `${loc.latitude.toFixed(2)}, ${loc.longitude.toFixed(2)}`;
+          setDetectedLocation({ display, latitude: loc.latitude, longitude: loc.longitude });
         } catch {
-          // If reverse geocode fails, still provide coords
           setDetectedLocation({
             display: `${loc.latitude.toFixed(2)}, ${loc.longitude.toFixed(2)}`,
             latitude: loc.latitude,
             longitude: loc.longitude,
           });
-          setMapFlyTo({ lat: loc.latitude, lon: loc.longitude });
         }
+        setMapFlyTo({ lat: loc.latitude, lon: loc.longitude });
       }
     });
-  }, []);
+  }, [consentGiven]);
 
   // Fetch initial stats on mount
   useEffect(() => {
@@ -164,8 +171,28 @@ export default function Home() {
     setConsentGiven(true);
   }, []);
 
+  const handleHealthImported = useCallback((summary: ImportSummary) => {
+    setHealthImported(true);
+    setHealthSummary(summary);
+  }, []);
+
   const handleLocationConfirmed = useCallback((lat: number, lon: number) => {
     setMapFlyTo({ lat, lon });
+    setUserLocation({ latitude: lat, longitude: lon });
+  }, []);
+
+  const handleLocationOverride = useCallback((locationText: string) => {
+    forwardGeocode(locationText).then((result) => {
+      if (result.latitude && result.longitude) {
+        setMapFlyTo({ lat: result.latitude, lon: result.longitude });
+        setUserLocation({ latitude: result.latitude, longitude: result.longitude });
+        setDetectedLocation({
+          display: result.display || locationText,
+          latitude: result.latitude,
+          longitude: result.longitude,
+        });
+      }
+    }).catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -244,7 +271,10 @@ export default function Home() {
               zeroResults={zeroResults}
               demoRef={demoRef}
               onLocationConfirmed={handleLocationConfirmed}
-              onReportReady={(html, pdf) => setReportUrls({ html, pdf })}
+              onLocationOverride={handleLocationOverride}
+              onReportReady={(html, pdf) => setReportUrls({ html, pdf: pdf || "" })}
+              healthImported={healthImported}
+              onHealthImported={handleHealthImported}
             />
           ) : (
             <div className="flex items-center justify-center h-full">
@@ -265,8 +295,10 @@ export default function Home() {
           <div>
             <p className="text-sm font-medium">Your Report</p>
             <div className="flex gap-2 mt-1">
-              <a href={reportUrls.html} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 hover:underline">View HTML</a>
-              <a href={reportUrls.pdf} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 hover:underline">Download PDF</a>
+              <a href={reportUrls.html} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 hover:underline">View Report</a>
+              {reportUrls.pdf && (
+                <a href={reportUrls.pdf} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 hover:underline">Download PDF</a>
+              )}
             </div>
           </div>
         </div>

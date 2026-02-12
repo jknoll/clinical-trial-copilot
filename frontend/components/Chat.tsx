@@ -6,6 +6,7 @@ import { WSClient } from "@/lib/websocket";
 import { ChatMessage } from "@/lib/types";
 import { MessageBubble } from "./MessageBubble";
 import { AgentActivity } from "./AgentActivity";
+import { HealthImport, ImportSummary } from "./HealthImport";
 
 import { FacetedFilters, ActiveFilter } from "@/lib/types";
 
@@ -22,34 +23,73 @@ interface Props {
   zeroResults?: boolean;
   demoRef?: React.MutableRefObject<(() => void) | null>;
   onLocationConfirmed?: (lat: number, lon: number) => void;
+  onLocationOverride?: (locationText: string) => void;
   onReportReady?: (htmlUrl: string, pdfUrl: string) => void;
+  healthImported?: boolean;
+  onHealthImported?: (summary: ImportSummary) => void;
 }
 
-const DEMO_ANSWERS: [string[], string[]][] = [
-  [["treatment", "tried", "receiving"], ["I haven't tried any treatments yet"]],
-  [["location", "near", "correct", "right area"], ["Yes, that's correct"]],
-  [["age", "old", "your age", "date of birth"], ["55"]],
-  [["sex", "biological", "gender", "male or female", "assigned at birth"], ["Female"]],
-  [["activity", "day-to-day", "daily", "physical", "everyday"], ["I can do all my normal daily activities without any limitations"]],
-  [["trial type", "type of trial", "types of trials", "interested in"], ["I am open to any type"]],
-  [["phase"], ["I am open to any phase"]],
-  [["travel", "distance", "miles", "far", "willing to go"], ["Within 100 miles"]],
-  [["placebo"], ["I am comfortable with the possibility of receiving a placebo"]],
-  [["correct", "change", "confirm", "look right", "accurate", "adjust"], ["Yes, that looks correct"]],
+// Demo answer lookup — keyword-based, each entry can only be used once.
+// Keywords are specific enough to avoid cross-matching.
+const DEMO_ANSWERS: [string[], string][] = [
+  // Diagnosis details / stage / when diagnosed
+  [["diagnos", "stage", "when were you", "first", "more detail", "more about your"], "About 6 months ago, it's stage IV"],
+  // Treatment history
+  [["treatment", "tried so far", "receiving", "medication", "what therap"], "I've been on levodopa for 3 months"],
+  // Treatment effectiveness follow-up
+  [["working for you", "helping", "effective", "how has the", "response to"], "It's been partially helping but I still have significant symptoms"],
+  // Other conditions / comorbidities
+  [["other condition", "other health", "comorbid", "besides parkinson"], "No other major conditions"],
+  // Location confirmation (browser detected)
+  [["is this where you'd like", "near alameda", "right area", "where you'd like to search"], "Yes, that's correct"],
+  // Location (no browser detection)
+  [["where are you located", "city and state", "what area"], "Boston, MA"],
+  // Age
+  [["how old", "your age", "date of birth"], "68"],
+  // Biological sex
+  [["biological sex", "male or female", "assigned at birth"], "Male"],
+  // Activity level (text or widget)
+  [["activity level", "day-to-day", "daily activit", "describe your"], "I can do most daily activities but get tired more easily than usual"],
+  // Trial types (widget)
+  [["type of trial", "types of trial", "what kind of trial", "what types"], "Treatment trials"],
+  // Trial phases (widget)
+  [["trial phase", "phases are you", "which phase", "open to which"], "Late phase (Phase 3)"],
+  // Travel distance (widget)
+  [["travel", "distance", "how far", "willing to go", "miles"], "Within 50 miles"],
+  // Placebo comfort (widget)
+  [["placebo", "inactive treatment"], "I'm comfortable with the possibility of receiving a placebo"],
+  // Profile confirmation
+  [["does this look correct", "look right", "anything you.d like to change", "is there anything", "ready for me to", "shall i"], "Yes, that looks correct"],
+  // Trial selection
+  [["which of these", "interest you", "which trial", "more details on"], "I'm interested in all of them"],
+  // Follow-up catch-all
+  [["anything else", "remaining question", "additional question", "anything you'd like to"], "No, thank you — this is very helpful"],
 ];
 
-function findDemoAnswer(text: string): string[] | null {
+const _usedDemoAnswers = new Set<number>();
+
+function findDemoAnswer(text: string): string | null {
   const lower = text.toLowerCase();
-  for (const [keywords, answer] of DEMO_ANSWERS) {
-    if (keywords.some((kw) => lower.includes(kw))) return answer;
+
+  // Find the best matching answer that hasn't been used
+  for (let i = 0; i < DEMO_ANSWERS.length; i++) {
+    if (_usedDemoAnswers.has(i)) continue;
+    const [keywords, answer] = DEMO_ANSWERS[i];
+    if (keywords.some((kw) => lower.includes(kw))) {
+      _usedDemoAnswers.add(i);
+      return answer;
+    }
   }
-  return null;
+
+  // Generic fallback for truly unexpected questions
+  return "Yes, let's continue";
 }
 
-export function Chat({ sessionId, onFiltersChanged, detectedLocation, zeroResults, demoRef, onLocationConfirmed, onReportReady }: Props) {
+export function Chat({ sessionId, onFiltersChanged, detectedLocation, zeroResults, demoRef, onLocationConfirmed, onLocationOverride, onReportReady, healthImported, onHealthImported }: Props) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
+  const [isServerProcessing, setIsServerProcessing] = useState(false);
   const wsRef = useRef<WSClient | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -61,6 +101,7 @@ export function Chat({ sessionId, onFiltersChanged, detectedLocation, zeroResult
   const [activityLog, setActivityLog] = useState<Record<string, string[]>>({});
   const [isProcessingComplete, setIsProcessingComplete] = useState(false);
   const handleWidgetSubmitRef = useRef<((questionId: string, selections: string[], question?: string) => void) | null>(null);
+  const handleTrialSelectionRef = useRef<((trialIds: string[]) => void) | null>(null);
   const onReportReadyRef = useRef(onReportReady);
   onReportReadyRef.current = onReportReady;
 
@@ -113,30 +154,35 @@ export function Chat({ sessionId, onFiltersChanged, detectedLocation, zeroResult
       setTimeout(() => inputRef.current?.focus(), 50);
 
       if (demoModeRef.current) {
-        // Check if the last assistant message contains a question
+        // Wait then check if we need to send a text answer.
+        // Skip if a widget/trial_cards arrives in the meantime (they handle themselves).
         setTimeout(() => {
           setMessages((prev) => {
+            const lastMsg = prev[prev.length - 1];
+            // Skip if a widget, trial_cards, or user message appeared since text_done
+            if (lastMsg && (lastMsg.messageType === "widget" || lastMsg.messageType === "trial_cards" || lastMsg.role === "user")) {
+              return prev;
+            }
             const lastAssistant = [...prev].reverse().find((m) => m.role === "assistant" && m.messageType === "text");
             if (lastAssistant && lastAssistant.content.includes("?")) {
               const answer = findDemoAnswer(lastAssistant.content);
               if (answer) {
-                // Auto-send text response
                 const userMsg: ChatMessage = {
                   id: `user_${Date.now()}`,
                   role: "user",
-                  content: answer[0],
+                  content: answer,
                   messageType: "text",
                   timestamp: Date.now(),
                 };
-                // We need to send via websocket too
-                wsRef.current?.send({ type: "message", content: answer[0] });
+                wsRef.current?.send({ type: "message", content: answer });
                 setIsTyping(true);
+                setIsServerProcessing(true);
                 return [...prev, userMsg];
               }
             }
             return prev;
           });
-        }, 1000);
+        }, 1500);
       }
     } else if (type === "widget") {
       setIsTyping(false);
@@ -158,7 +204,7 @@ export function Chat({ sessionId, onFiltersChanged, detectedLocation, zeroResult
           setTimeout(() => {
             handleWidgetSubmitRef.current?.(
               data.questionId as string,
-              answer,
+              [answer],
               widgetQuestion
             );
           }, 800);
@@ -175,6 +221,17 @@ export function Chat({ sessionId, onFiltersChanged, detectedLocation, zeroResult
         timestamp: Date.now(),
       };
       setMessages((prev) => [...prev, msg]);
+
+      // Demo mode: auto-select all trials if selectable
+      if (demoModeRef.current && data.selectable) {
+        const trials = (data.trials as Array<Record<string, unknown>>) || [];
+        const allIds = trials.map((t) => t.nct_id as string).filter(Boolean);
+        if (allIds.length > 0) {
+          setTimeout(() => {
+            handleTrialSelectionRef.current?.(allIds);
+          }, 1500);
+        }
+      }
     } else if (type === "status") {
       // Status messages go to AgentActivity strip only, not into chat
       if (data.phase) {
@@ -209,6 +266,8 @@ export function Chat({ sessionId, onFiltersChanged, detectedLocation, zeroResult
         timestamp: Date.now(),
       };
       setMessages((prev) => [...prev, msg]);
+      // Demo mode: stop auto-answering after report is generated
+      demoModeRef.current = false;
       // Notify parent to show floating report card
       if (onReportReadyRef.current) {
         const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8100";
@@ -220,12 +279,13 @@ export function Chat({ sessionId, onFiltersChanged, detectedLocation, zeroResult
       }
     } else if (type === "done") {
       setIsTyping(false);
+      setIsServerProcessing(false);
       setCurrentActivity("");
-      // Auto-hide the activity bar after a brief delay
-      setTimeout(() => setIsProcessingComplete(true), 2000);
+      // Refocus input so user can immediately type
       setTimeout(() => inputRef.current?.focus(), 50);
     } else if (type === "error") {
       setIsTyping(false);
+      setIsServerProcessing(false);
       const msg: ChatMessage = {
         id: `error_${Date.now()}`,
         role: "system",
@@ -252,7 +312,7 @@ export function Chat({ sessionId, onFiltersChanged, detectedLocation, zeroResult
   // Send system hint when filters narrow to zero results
   const prevZeroResults = useRef(false);
   useEffect(() => {
-    if (zeroResults && !prevZeroResults.current && wsRef.current) {
+    if (zeroResults && !prevZeroResults.current && wsRef.current && !demoModeRef.current) {
       wsRef.current.send({
         type: "system_hint",
         content:
@@ -269,8 +329,9 @@ export function Chat({ sessionId, onFiltersChanged, detectedLocation, zeroResult
     if (demoRef) {
       demoRef.current = () => {
         demoModeRef.current = true;
-        // Send "breast cancer" directly via websocket
-        const text = "breast cancer";
+        _usedDemoAnswers.clear();
+        // Send "Parkinson disease" directly via websocket
+        const text = "Parkinson disease";
         const msg: ChatMessage = {
           id: `user_${Date.now()}`,
           role: "user",
@@ -280,6 +341,7 @@ export function Chat({ sessionId, onFiltersChanged, detectedLocation, zeroResult
         };
         setMessages((prev) => [...prev, msg]);
         setIsTyping(true);
+        setIsServerProcessing(true);
 
         const payload: {
           type: string;
@@ -304,8 +366,15 @@ export function Chat({ sessionId, onFiltersChanged, detectedLocation, zeroResult
   }, [demoRef, detectedLocation, onFiltersChanged]);
 
   const sendMessage = useCallback(() => {
-    const text = input.trim();
+    let text = input.trim();
     if (!text || !wsRef.current) return;
+
+    // Hidden test mode: typing "test" as first message activates automated demo
+    if (text.toLowerCase() === "test" && messageCountRef.current === 0) {
+      demoModeRef.current = true;
+      _usedDemoAnswers.clear();
+      text = "Parkinson disease";
+    }
 
     const msg: ChatMessage = {
       id: `user_${Date.now()}`,
@@ -317,6 +386,7 @@ export function Chat({ sessionId, onFiltersChanged, detectedLocation, zeroResult
     setMessages((prev) => [...prev, msg]);
     setInput("");
     setIsTyping(true);
+    setIsServerProcessing(true);
     const payload: {
       type: string;
       content: string;
@@ -333,12 +403,43 @@ export function Chat({ sessionId, onFiltersChanged, detectedLocation, zeroResult
     wsRef.current.send(payload);
     inputRef.current?.focus();
 
-    // First typed message is likely the condition
     messageCountRef.current++;
-    if (messageCountRef.current === 1 && onFiltersChanged) {
-      onFiltersChanged({ condition: text }, [{ key: "condition", label: "Condition", value: text }]);
+
+    // Extract filters from text responses based on the last assistant question
+    if (onFiltersChanged) {
+      if (messageCountRef.current === 1) {
+        // First message is the condition
+        onFiltersChanged({ condition: text }, [{ key: "condition", label: "Condition", value: text }]);
+      } else {
+        // Check the last assistant message to infer what question was asked
+        const lastAssistant = [...messages].reverse().find(
+          (m) => m.role === "assistant" && (m.messageType === "text" || m.messageType === "widget")
+        );
+        if (lastAssistant) {
+          const q = lastAssistant.content.toLowerCase();
+          if (q.includes("age") || q.includes("old") || q.includes("your age") || q.includes("date of birth")) {
+            const ageMatch = text.match(/(\d+)/);
+            if (ageMatch) {
+              const age = parseInt(ageMatch[1]);
+              onFiltersChanged({ age }, [{ key: "age", label: "Age", value: String(age) }]);
+            }
+          } else if (q.includes("sex") || q.includes("biological sex") || q.includes("male or female")) {
+            const lower = text.toLowerCase();
+            if (lower.includes("female") || lower.includes("woman")) {
+              onFiltersChanged({ sex: "Female" }, [{ key: "sex", label: "Sex", value: "Female" }]);
+            } else if (lower.includes("male") || lower.includes("man")) {
+              onFiltersChanged({ sex: "Male" }, [{ key: "sex", label: "Sex", value: "Male" }]);
+            }
+          } else if (q.includes("location") || q.includes("located") || q.includes("where") || q.includes("near you")) {
+            // User typed a location — trigger map update
+            if (onLocationOverride && text.length > 2) {
+              onLocationOverride(text);
+            }
+          }
+        }
+      }
     }
-  }, [input, onFiltersChanged, detectedLocation]);
+  }, [input, onFiltersChanged, detectedLocation, messages, onLocationOverride]);
 
   const handleWidgetSubmit = useCallback(
     (questionId: string, selections: string[], question?: string) => {
@@ -353,6 +454,7 @@ export function Chat({ sessionId, onFiltersChanged, detectedLocation, zeroResult
       };
       setMessages((prev) => [...prev, msg]);
       setIsTyping(true);
+      setIsServerProcessing(true);
       wsRef.current.send({
         type: "widget_response",
         questionId,
@@ -383,18 +485,24 @@ export function Chat({ sessionId, onFiltersChanged, detectedLocation, zeroResult
         }
       }
 
-      // Detect location confirmation
-      if (onLocationConfirmed && question) {
+      // Detect location confirmation or override
+      if (question) {
         const q = question.toLowerCase();
-        if ((q.includes("location") || q.includes("near") || q.includes("area") || q.includes("correct")) && detectedLocation) {
+        if (q.includes("location") || q.includes("near") || q.includes("area") || q.includes("correct") || q.includes("where")) {
           const affirmative = selections.some((s) => s.toLowerCase().includes("yes") || s.toLowerCase().includes("correct"));
-          if (affirmative) {
+          if (affirmative && onLocationConfirmed && detectedLocation) {
             onLocationConfirmed(detectedLocation.latitude, detectedLocation.longitude);
+          } else if (!affirmative && onLocationOverride) {
+            // User provided a different location
+            const locationText = selections.join(", ");
+            if (locationText.length > 2) {
+              onLocationOverride(locationText);
+            }
           }
         }
       }
     },
-    [onFiltersChanged, onLocationConfirmed, detectedLocation]
+    [onFiltersChanged, onLocationConfirmed, onLocationOverride, detectedLocation]
   );
 
   handleWidgetSubmitRef.current = handleWidgetSubmit;
@@ -411,13 +519,21 @@ export function Chat({ sessionId, onFiltersChanged, detectedLocation, zeroResult
       };
       setMessages((prev) => [...prev, msg]);
       setIsTyping(true);
+      setIsServerProcessing(true);
       wsRef.current.send({ type: "trial_selection", trialIds });
     },
     []
   );
 
+  handleTrialSelectionRef.current = handleTrialSelection;
+
   return (
     <div className="flex flex-col h-full">
+      {/* Health import card — shown during intake phase before import */}
+      {currentPhase === "intake" && !healthImported && (
+        <HealthImport sessionId={sessionId} onImported={onHealthImported} />
+      )}
+
       {/* Messages area */}
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
         {messages.map((msg) => (
@@ -429,7 +545,7 @@ export function Chat({ sessionId, onFiltersChanged, detectedLocation, zeroResult
           />
         ))}
 
-        {isTyping && !pendingIdRef.current && (
+        {(isTyping || isServerProcessing) && !pendingIdRef.current && (
           <div className="flex items-center gap-1 px-4 py-3">
             <div className="typing-dot" />
             <div className="typing-dot" />
@@ -444,7 +560,7 @@ export function Chat({ sessionId, onFiltersChanged, detectedLocation, zeroResult
       <AgentActivity
         currentPhase={currentPhase}
         activity={currentActivity}
-        isProcessing={isTyping}
+        isProcessing={isServerProcessing}
         activityLog={activityLog}
         isComplete={isProcessingComplete}
       />
@@ -460,11 +576,11 @@ export function Chat({ sessionId, onFiltersChanged, detectedLocation, zeroResult
             onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && sendMessage()}
             placeholder="Type your message..."
             className="flex-1 rounded-xl border border-slate-300 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            disabled={isTyping}
+            disabled={isServerProcessing}
           />
           <button
             onClick={sendMessage}
-            disabled={!input.trim() || isTyping}
+            disabled={!input.trim() || isServerProcessing}
             className="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             <Send className="w-4 h-4" />

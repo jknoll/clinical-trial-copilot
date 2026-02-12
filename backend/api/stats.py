@@ -9,7 +9,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from backend.mcp_servers.aact_queries import get_total_count, get_top_conditions, query_faceted_stats
-from backend.mcp_servers.geocoding import reverse_geocode
+from backend.mcp_servers.geocoding import reverse_geocode, geocode_location
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/stats", tags=["stats"])
@@ -26,6 +26,10 @@ class StatsQuery(BaseModel):
 class GeoReverseQuery(BaseModel):
     latitude: float
     longitude: float
+
+
+class GeoForwardQuery(BaseModel):
+    location: str
 
 
 class FunnelStep(BaseModel):
@@ -62,6 +66,16 @@ async def reverse_geocode_endpoint(body: GeoReverseQuery) -> dict:
     if result is None:
         return {"city": "", "state": "", "display": "Unknown location"}
     return result
+
+
+@router.post("/geo/forward")
+async def forward_geocode_endpoint(body: GeoForwardQuery) -> dict:
+    """Geocode a location string to coordinates."""
+    result = await geocode_location(body.location)
+    if result is None:
+        return {"latitude": 0, "longitude": 0, "display": ""}
+    display = ", ".join(p for p in [result.get("name", ""), result.get("admin1", "")] if p)
+    return {"latitude": result["latitude"], "longitude": result["longitude"], "display": display}
 
 
 @router.post("/query", response_model=StatsResponse)

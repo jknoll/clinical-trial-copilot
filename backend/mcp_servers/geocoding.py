@@ -98,71 +98,38 @@ async def geocode_location(location_string: str) -> dict | None:
 
 
 async def reverse_geocode(latitude: float, longitude: float) -> dict | None:
-    """Convert coordinates to a place name using Open-Meteo geocoding search.
-
-    Uses a nearby-point search strategy: searches for the nearest named place
-    to the given coordinates.
+    """Convert coordinates to a place name using Nominatim (OpenStreetMap) reverse geocoding.
 
     Returns:
         Dict with city, state, country, display, or None on failure.
     """
     try:
-        async with httpx.AsyncClient(
-            base_url=_GEOCODING_BASE,
-            timeout=10.0,
-            headers={"Accept": "application/json"},
-        ) as client:
-            # Open-Meteo doesn't have a direct reverse geocode endpoint,
-            # but we can search by coordinates using their search API
-            # with a very short name query and then pick the closest result.
-            # Alternative: use a lat/lon bounding box search.
-            # Best approach: use the Nominatim-compatible reverse endpoint.
+        async with httpx.AsyncClient(timeout=10.0) as client:
             response = await client.get(
-                "/search",
+                "https://nominatim.openstreetmap.org/reverse",
                 params={
-                    "name": "",  # empty triggers coordinate-based search
-                    "count": 1,
-                    "language": "en",
+                    "lat": latitude,
+                    "lon": longitude,
                     "format": "json",
-                    "latitude": latitude,
-                    "longitude": longitude,
+                    "zoom": 10,
+                },
+                headers={
+                    "User-Agent": "ClinicalTrialNavigator/1.0 (hackathon project)",
+                    "Accept": "application/json",
                 },
             )
             response.raise_for_status()
             data = response.json()
-            results = data.get("results")
 
-            if not results:
-                # Fallback: try a general search near these coords
-                # by searching for common city-scale features
-                response = await client.get(
-                    "/search",
-                    params={
-                        "name": "city",
-                        "count": 10,
-                        "language": "en",
-                        "format": "json",
-                    },
-                )
-                response.raise_for_status()
-                data = response.json()
-                results = data.get("results", [])
-                if results:
-                    # Find the closest result to our coordinates
-                    results.sort(
-                        key=lambda r: calculate_distance(
-                            latitude, longitude,
-                            r.get("latitude", 0), r.get("longitude", 0),
-                        )
-                    )
-
-            if not results:
-                return None
-
-            result = results[0]
-            city = result.get("name", "")
-            state = result.get("admin1", "")
-            country = result.get("country", "")
+            address = data.get("address", {})
+            city = (
+                address.get("city")
+                or address.get("town")
+                or address.get("village")
+                or address.get("county", "")
+            )
+            state = address.get("state", "")
+            country = address.get("country", "")
 
             parts = [p for p in [city, state] if p]
             display = ", ".join(parts) if parts else country

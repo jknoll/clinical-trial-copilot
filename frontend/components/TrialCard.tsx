@@ -75,7 +75,13 @@ export function TrialCard({
           </div>
 
           <div className="flex items-center gap-3 text-xs text-slate-500 mt-1.5">
-            <span className="text-slate-400">{nctId}</span>
+            <a
+              href={`https://clinicaltrials.gov/study/${nctId}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-blue-500 hover:underline"
+              onClick={(e) => e.stopPropagation()}
+            >{nctId}</a>
             <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 font-medium">
               {formatPhase(phase)}
             </span>

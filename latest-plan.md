@@ -1,1 +1,1 @@
-/home/j/.claude/plans/greedy-wandering-thunder.md
+/Users/justinknoll/.claude/plans/tranquil-coalescing-cake.md

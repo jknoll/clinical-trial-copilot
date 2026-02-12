@@ -184,7 +184,7 @@ async def query_faceted_stats(filters: dict[str, Any]) -> dict[str, Any]:
             ctgov.facilities f2 ON f2.nct_id = s.nct_id
         {where_sql}
         {"AND" if where_clauses else "WHERE"} f2.country = 'United States' AND f2.state IS NOT NULL
-        GROUP BY f2.country, f2.state ORDER BY cnt DESC LIMIT 30
+        GROUP BY f2.country, f2.state ORDER BY cnt DESC
     """
     geo_rows = await pool.fetch(geo_q, *params)
     geo_distribution = {row["state"]: int(row["cnt"]) for row in geo_rows}

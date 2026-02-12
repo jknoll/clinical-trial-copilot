@@ -32,12 +32,19 @@ export function StatsPanel({ stats, activeFilters, loading, error, userLocation,
 
   if (!stats) {
     return (
-      <div className="h-full flex flex-col items-center justify-center p-6">
-        <div className="animate-pulse flex flex-col items-center gap-3">
-          <div className="w-16 h-16 rounded-full bg-blue-100 flex items-center justify-center">
-            <Database className="w-8 h-8 text-blue-400" />
+      <div className="h-full overflow-y-auto">
+        <div className="p-4 space-y-4">
+          {/* Shimmer hero card */}
+          <div className="rounded-xl p-4 shimmer h-[120px]" />
+          {/* Shimmer filter chips */}
+          <div className="flex gap-2">
+            <div className="shimmer h-6 w-20 rounded-full" />
+            <div className="shimmer h-6 w-24 rounded-full" />
           </div>
-          <p className="text-sm text-slate-400">Loading trial database...</p>
+          {/* Shimmer chart sections */}
+          <div className="shimmer h-[160px] rounded-lg" />
+          <div className="shimmer h-[120px] rounded-lg" />
+          <div className="shimmer h-[100px] rounded-lg" />
         </div>
       </div>
     );
@@ -49,23 +56,27 @@ export function StatsPanel({ stats, activeFilters, loading, error, userLocation,
     <div className="h-full overflow-y-auto">
       <div className="p-4 space-y-4">
         {/* Header metric */}
-        <div className="bg-gradient-to-br from-blue-600 to-blue-700 rounded-xl p-4 text-white">
-          <div className="flex items-baseline gap-2 mb-1">
-            <span className="text-3xl font-bold tabular-nums">
-              {stats.matched.toLocaleString()}
-            </span>
-            <span className="text-blue-200 text-sm">
-              of {stats.total.toLocaleString()}
-            </span>
+        <div className="bg-gradient-to-br from-blue-600 via-blue-700 to-indigo-700 rounded-xl p-4 text-white relative overflow-hidden">
+          <div className="absolute -top-6 -right-6 w-24 h-24 rounded-full bg-white/10" />
+          <div className="absolute -bottom-4 -left-4 w-16 h-16 rounded-full bg-white/5" />
+          <div className="relative">
+            <div className="flex items-baseline gap-2 mb-1">
+              <span className="text-3xl font-bold tabular-nums">
+                {stats.matched.toLocaleString()}
+              </span>
+              <span className="text-blue-200 text-sm">
+                of {stats.total.toLocaleString()}
+              </span>
+            </div>
+            <p className="text-blue-100 text-sm">active clinical trials match your criteria</p>
+            <div className="mt-3 h-2 bg-blue-800/50 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-white/90 rounded-full transition-all duration-700 ease-out shadow-[0_0_8px_rgba(255,255,255,0.3)]"
+                style={{ width: `${Math.max(parseFloat(pct), 0.5)}%` }}
+              />
+            </div>
+            <p className="text-blue-200 text-xs mt-1 tabular-nums">{pct}% of all trials</p>
           </div>
-          <p className="text-blue-100 text-sm">active clinical trials match your criteria</p>
-          <div className="mt-3 h-2 bg-blue-800/50 rounded-full overflow-hidden">
-            <div
-              className="h-full bg-white/80 rounded-full transition-all duration-700 ease-out"
-              style={{ width: `${Math.max(parseFloat(pct), 0.5)}%` }}
-            />
-          </div>
-          <p className="text-blue-200 text-xs mt-1 tabular-nums">{pct}% of all trials</p>
         </div>
 
         {/* Active filters */}
@@ -164,7 +175,7 @@ function Section({
         {icon}
         {title}
       </div>
-      <div className="bg-white rounded-lg border border-slate-100 p-2">{children}</div>
+      <div className="bg-white/80 rounded-lg border border-slate-100 p-2">{children}</div>
     </div>
   );
 }

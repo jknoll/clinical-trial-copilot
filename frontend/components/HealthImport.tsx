@@ -114,7 +114,7 @@ export function HealthImport({ sessionId, onImported }: HealthImportProps) {
       <div className="mx-4 mt-3 mb-1">
         <button
           onClick={() => setExpanded(true)}
-          className="w-full flex items-center gap-2 px-4 py-2 rounded-xl bg-green-50 border border-green-200 text-green-700 text-sm font-medium hover:bg-green-100 transition-colors"
+          className="w-full flex items-center gap-2 px-4 py-2 rounded-xl bg-green-50 border border-green-200 text-green-700 text-sm font-medium hover:bg-green-100 transition-all shadow-sm"
         >
           <CheckCircle2 className="w-4 h-4 shrink-0" />
           <span className="truncate">
@@ -145,7 +145,7 @@ export function HealthImport({ sessionId, onImported }: HealthImportProps) {
 
   return (
     <div className="mx-4 mt-3 mb-1">
-      <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+      <div className="rounded-xl border border-slate-200/60 bg-white/90 backdrop-blur-sm shadow-sm overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 bg-slate-50 border-b border-slate-100">
           <div className="flex items-center gap-2">
@@ -239,7 +239,7 @@ export function HealthImport({ sessionId, onImported }: HealthImportProps) {
               <div className="flex gap-3">
                 <button
                   onClick={() => fileInputRef.current?.click()}
-                  className="flex-1 flex flex-col items-center gap-1.5 px-4 py-4 rounded-lg border-2 border-dashed border-slate-200 text-sm font-medium text-slate-700 hover:border-blue-400 hover:bg-blue-50 transition-all cursor-pointer"
+                  className="flex-1 flex flex-col items-center gap-1.5 px-4 py-4 rounded-lg border-2 border-dashed border-slate-200 text-sm font-medium text-slate-700 hover:border-blue-400 hover:bg-blue-50/80 hover:-translate-y-0.5 transition-all cursor-pointer"
                 >
                   <Upload className="w-5 h-5 text-blue-600" />
                   <span>Upload File</span>
@@ -247,7 +247,7 @@ export function HealthImport({ sessionId, onImported }: HealthImportProps) {
                 </button>
                 <button
                   onClick={handleDemoData}
-                  className="flex-1 flex flex-col items-center gap-1.5 px-4 py-4 rounded-lg border-2 border-dashed border-slate-200 text-sm font-medium text-slate-700 hover:border-blue-400 hover:bg-blue-50 transition-all cursor-pointer"
+                  className="flex-1 flex flex-col items-center gap-1.5 px-4 py-4 rounded-lg border-2 border-dashed border-slate-200 text-sm font-medium text-slate-700 hover:border-blue-400 hover:bg-blue-50/80 hover:-translate-y-0.5 transition-all cursor-pointer"
                 >
                   <FlaskConical className="w-5 h-5 text-blue-600" />
                   <span>Use Demo Data</span>
@@ -255,9 +255,16 @@ export function HealthImport({ sessionId, onImported }: HealthImportProps) {
                 </button>
               </div>
 
-              <p className="text-xs text-slate-400 mt-3">
-                How to export: Settings &gt; Health &gt; Export All Health Data
-              </p>
+              <div className="flex items-center justify-between mt-3">
+                <p className="text-xs text-slate-400">
+                  How to export: Settings &gt; Health &gt; Export All Health Data
+                </p>
+                <img
+                  src="/Apple_Health_badge_US-UK_blk_sRGB.svg"
+                  alt="Works with Apple Health"
+                  className="h-[34px] w-auto"
+                />
+              </div>
             </>
           )}
         </div>

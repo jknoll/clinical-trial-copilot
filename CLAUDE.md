@@ -28,13 +28,17 @@ Built for the "Built with Opus 4.6" hackathon (Cerebral Valley x Anthropic, Feb 
 - WCAG AA accessibility for all HTML output
 
 ## Running
+
+Use `/restart` to start or restart both dev servers. This handles killing stale processes, cleaning lock files, and verifying health checks.
+
+Manual commands if needed:
 ```bash
-# Backend
+# Backend (port 8100) — no virtualenv, uses base conda env
 cd /home/j/Documents/git/clinical-trial-copilot
 pip install -e .
 uvicorn backend.main:app --reload --port 8100
 
-# Frontend
+# Frontend (port 3000)
 cd frontend
 npm install
 npm run dev

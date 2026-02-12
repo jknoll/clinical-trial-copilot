@@ -60,7 +60,7 @@ export function IntakeWidget({ question, questionId, widgetType, options, onSubm
   };
 
   return (
-    <div className={clsx("rounded-xl border border-slate-200 bg-white p-4", submitted && "opacity-75")}>
+    <div className={clsx("rounded-xl border border-slate-200 bg-white/90 backdrop-blur-sm p-4", submitted && "opacity-75")}>
       <p className="font-medium text-slate-800 mb-3">{question}</p>
       <div className="space-y-2">
         {options.map((option) => (
@@ -71,8 +71,8 @@ export function IntakeWidget({ question, questionId, widgetType, options, onSubm
             className={clsx(
               "w-full text-left rounded-lg border-2 px-4 py-3 transition-all",
               selected.has(option.value)
-                ? "border-blue-500 bg-blue-50"
-                : "border-slate-200 hover:border-slate-300 hover:bg-slate-50",
+                ? "border-blue-500 bg-blue-50 scale-[1.01]"
+                : "border-slate-200 hover:border-slate-300 hover:bg-slate-50 hover:-translate-y-0.5",
               submitted && "cursor-default"
             )}
           >
@@ -95,7 +95,7 @@ export function IntakeWidget({ question, questionId, widgetType, options, onSubm
         <button
           onClick={handleSubmit}
           disabled={selected.size === 0}
-          className="mt-3 w-full py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          className="mt-3 w-full py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-sm font-medium rounded-lg hover:from-blue-700 hover:to-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
         >
           Continue ({selected.size} selected)
         </button>

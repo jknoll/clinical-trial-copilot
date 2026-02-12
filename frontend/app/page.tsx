@@ -96,7 +96,6 @@ export default function Home() {
             longitude: loc.longitude,
           });
         }
-        setMapFlyTo({ lat: loc.latitude, lon: loc.longitude });
       }
     });
   }, [consentGiven]);
@@ -184,7 +183,6 @@ export default function Home() {
   const handleLocationOverride = useCallback((locationText: string) => {
     forwardGeocode(locationText).then((result) => {
       if (result.latitude && result.longitude) {
-        setMapFlyTo({ lat: result.latitude, lon: result.longitude });
         setUserLocation({ latitude: result.latitude, longitude: result.longitude });
         setDetectedLocation({
           display: result.display || locationText,
@@ -209,12 +207,12 @@ export default function Home() {
   return (
     <div className="flex flex-col h-screen">
       {/* Header */}
-      <header className="bg-white border-b border-slate-200 px-4 py-3 flex items-center gap-3 shrink-0">
-        <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
+      <header className="bg-white/80 backdrop-blur-lg border-b border-slate-200/60 px-4 py-3 flex items-center gap-3 shrink-0">
+        <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-lg flex items-center justify-center shadow-sm">
           <span className="text-white font-bold text-sm">CT</span>
         </div>
         <div className="flex-1">
-          <h1 className="text-lg font-semibold text-slate-900">Clinical Trial Navigator</h1>
+          <h1 className="text-lg font-semibold bg-gradient-to-r from-slate-900 to-slate-700 bg-clip-text text-transparent">Clinical Trial Navigator</h1>
           <p className="text-xs text-slate-500">AI-powered clinical trial guidance</p>
         </div>
         <button
@@ -234,7 +232,7 @@ export default function Home() {
       <main className="flex-1 overflow-hidden flex">
         {/* Stats panel (left) */}
         {showStats && (
-          <div className="w-[440px] shrink-0 border-r border-slate-200 bg-slate-50 overflow-hidden">
+          <div className="w-[440px] shrink-0 border-r border-slate-200/60 bg-white/60 backdrop-blur-xl overflow-hidden">
             <StatsPanel
               stats={stats}
               activeFilters={activeFilters}
@@ -305,8 +303,10 @@ export default function Home() {
       )}
 
       {!consentGiven && (
-        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-8 text-center">
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden modal-enter">
+            <div className="h-1 bg-gradient-to-r from-blue-600 to-indigo-600" />
+            <div className="p-8 text-center">
             <div className="w-14 h-14 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <Shield className="w-7 h-7 text-blue-600" />
             </div>
@@ -326,10 +326,11 @@ export default function Home() {
             </p>
             <button
               onClick={handleConsent}
-              className="w-full py-3 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-colors"
+              className="w-full py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl font-medium hover:from-blue-700 hover:to-indigo-700 transition-all"
             >
               I Understand and Agree
             </button>
+            </div>
           </div>
         </div>
       )}

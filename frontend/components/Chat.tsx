@@ -33,19 +33,19 @@ interface Props {
 // Keywords are specific enough to avoid cross-matching.
 const DEMO_ANSWERS: [string[], string][] = [
   // Diagnosis details / stage / when diagnosed
-  [["diagnos", "stage", "when were you", "first", "more detail", "more about your"], "About 6 months ago, it's stage IV"],
+  [["diagnos", "stage", "when were you", "first", "more detail", "more about your"], "About 8 months ago, it's localized to my femur"],
   // Treatment history
-  [["treatment", "tried so far", "receiving", "medication", "what therap"], "I've been on levodopa for 3 months"],
+  [["treatment", "tried so far", "receiving", "medication", "what therap"], "I completed 6 cycles of VDC/IE chemotherapy"],
   // Treatment effectiveness follow-up
-  [["working for you", "helping", "effective", "how has the", "response to"], "It's been partially helping but I still have significant symptoms"],
+  [["working for you", "helping", "effective", "how has the", "response to"], "There was a partial response but the tumor hasn't fully resolved"],
   // Other conditions / comorbidities
-  [["other condition", "other health", "comorbid", "besides parkinson"], "No other major conditions"],
+  [["other condition", "other health", "comorbid", "besides"], "No other major conditions"],
   // Location confirmation (browser detected)
   [["is this where you'd like", "near alameda", "right area", "where you'd like to search"], "Yes, that's correct"],
   // Location (no browser detection)
   [["where are you located", "city and state", "what area"], "Boston, MA"],
   // Age
-  [["how old", "your age", "date of birth"], "68"],
+  [["how old", "your age", "date of birth"], "17"],
   // Biological sex
   [["biological sex", "male or female", "assigned at birth"], "Male"],
   // Activity level (text or widget)
@@ -53,9 +53,9 @@ const DEMO_ANSWERS: [string[], string][] = [
   // Trial types (widget)
   [["type of trial", "types of trial", "what kind of trial", "what types"], "Treatment trials"],
   // Trial phases (widget)
-  [["trial phase", "phases are you", "which phase", "open to which"], "Late phase (Phase 3)"],
+  [["trial phase", "phases are you", "which phase", "open to which"], "Early phase (Phase 1 or 2)"],
   // Travel distance (widget)
-  [["travel", "distance", "how far", "willing to go", "miles"], "Within 50 miles"],
+  [["travel", "distance", "how far", "willing to go", "miles"], "Within 500 miles"],
   // Placebo comfort (widget)
   [["placebo", "inactive treatment"], "I'm comfortable with the possibility of receiving a placebo"],
   // Profile confirmation
@@ -232,6 +232,32 @@ export function Chat({ sessionId, onFiltersChanged, detectedLocation, zeroResult
           }, 1500);
         }
       }
+    } else if (type === "filters_update") {
+      if (onFiltersChanged) {
+        const partial: Record<string, unknown> = {};
+        const display: { key: string; label: string; value: string }[] = [];
+
+        if (data.condition) {
+          partial.condition = data.condition as string;
+          display.push({ key: "condition", label: "Condition", value: data.condition as string });
+        }
+        if (data.statuses) {
+          partial.statuses = data.statuses as string[];
+          display.push({ key: "statuses", label: "Status", value: (data.statuses as string[]).join(", ") });
+        }
+        if (data.age != null) {
+          partial.age = data.age as number;
+          display.push({ key: "age", label: "Age", value: String(data.age) });
+        }
+        if (data.sex) {
+          partial.sex = data.sex as string;
+          display.push({ key: "sex", label: "Sex", value: data.sex as string });
+        }
+
+        if (display.length > 0) {
+          onFiltersChanged(partial as any, display);
+        }
+      }
     } else if (type === "status") {
       // Status messages go to AgentActivity strip only, not into chat
       if (data.phase) {
@@ -330,8 +356,8 @@ export function Chat({ sessionId, onFiltersChanged, detectedLocation, zeroResult
       demoRef.current = () => {
         demoModeRef.current = true;
         _usedDemoAnswers.clear();
-        // Send "Parkinson disease" directly via websocket
-        const text = "Parkinson disease";
+        // Send "Ewing Sarcoma" directly via websocket
+        const text = "Ewing Sarcoma";
         const msg: ChatMessage = {
           id: `user_${Date.now()}`,
           role: "user",
@@ -373,7 +399,7 @@ export function Chat({ sessionId, onFiltersChanged, detectedLocation, zeroResult
     if (text.toLowerCase() === "test" && messageCountRef.current === 0) {
       demoModeRef.current = true;
       _usedDemoAnswers.clear();
-      text = "Parkinson disease";
+      text = "Ewing Sarcoma";
     }
 
     const msg: ChatMessage = {
@@ -405,41 +431,11 @@ export function Chat({ sessionId, onFiltersChanged, detectedLocation, zeroResult
 
     messageCountRef.current++;
 
-    // Extract filters from text responses based on the last assistant question
-    if (onFiltersChanged) {
-      if (messageCountRef.current === 1) {
-        // First message is the condition
-        onFiltersChanged({ condition: text }, [{ key: "condition", label: "Condition", value: text }]);
-      } else {
-        // Check the last assistant message to infer what question was asked
-        const lastAssistant = [...messages].reverse().find(
-          (m) => m.role === "assistant" && (m.messageType === "text" || m.messageType === "widget")
-        );
-        if (lastAssistant) {
-          const q = lastAssistant.content.toLowerCase();
-          if (q.includes("age") || q.includes("old") || q.includes("your age") || q.includes("date of birth")) {
-            const ageMatch = text.match(/(\d+)/);
-            if (ageMatch) {
-              const age = parseInt(ageMatch[1]);
-              onFiltersChanged({ age }, [{ key: "age", label: "Age", value: String(age) }]);
-            }
-          } else if (q.includes("sex") || q.includes("biological sex") || q.includes("male or female")) {
-            const lower = text.toLowerCase();
-            if (lower.includes("female") || lower.includes("woman")) {
-              onFiltersChanged({ sex: "Female" }, [{ key: "sex", label: "Sex", value: "Female" }]);
-            } else if (lower.includes("male") || lower.includes("man")) {
-              onFiltersChanged({ sex: "Male" }, [{ key: "sex", label: "Sex", value: "Male" }]);
-            }
-          } else if (q.includes("location") || q.includes("located") || q.includes("where") || q.includes("near you")) {
-            // User typed a location — trigger map update
-            if (onLocationOverride && text.length > 2) {
-              onLocationOverride(text);
-            }
-          }
-        }
-      }
+    // First message is the condition — send it as a filter immediately
+    if (onFiltersChanged && messageCountRef.current === 1) {
+      onFiltersChanged({ condition: text }, [{ key: "condition", label: "Condition", value: text }]);
     }
-  }, [input, onFiltersChanged, detectedLocation, messages, onLocationOverride]);
+  }, [input, onFiltersChanged, detectedLocation]);
 
   const handleWidgetSubmit = useCallback(
     (questionId: string, selections: string[], question?: string) => {
@@ -469,14 +465,6 @@ export function Chat({ sessionId, onFiltersChanged, detectedLocation, zeroResult
 
         if (q.includes("condition") || q.includes("diagnosis") || q.includes("looking for") || q.includes("what condition") || q.includes("exploring clinical trials for")) {
           onFiltersChanged({ condition: val }, [{ key: "condition", label: "Condition", value: val }]);
-        } else if (q.includes("age") || q.includes("old") || q.includes("your age") || q.includes("date of birth")) {
-          const ageMatch = val.match(/(\d+)/);
-          if (ageMatch) {
-            const age = parseInt(ageMatch[1]);
-            onFiltersChanged({ age }, [{ key: "age", label: "Age", value: String(age) }]);
-          }
-        } else if (q.includes("sex") || q.includes("gender") || q.includes("biological") || q.includes("male or female") || q.includes("assigned at birth")) {
-          onFiltersChanged({ sex: selections[0] }, [{ key: "sex", label: "Sex", value: selections[0] }]);
         } else if (q.includes("phase")) {
           // Phases don't directly map to stats filters but we show them
           onFiltersChanged({}, [{ key: "phases", label: "Phases", value: val }]);
@@ -528,7 +516,7 @@ export function Chat({ sessionId, onFiltersChanged, detectedLocation, zeroResult
   handleTrialSelectionRef.current = handleTrialSelection;
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full bg-white/40 backdrop-blur-sm">
       {/* Health import card — shown during intake phase; component handles its own collapse/badge */}
       {currentPhase === "intake" && (
         <HealthImport sessionId={sessionId} onImported={onHealthImported} />
@@ -536,13 +524,14 @@ export function Chat({ sessionId, onFiltersChanged, detectedLocation, zeroResult
 
       {/* Messages area */}
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
-        {messages.map((msg) => (
-          <MessageBubble
-            key={msg.id}
-            message={msg}
-            onWidgetSubmit={handleWidgetSubmit}
-            onTrialSelection={handleTrialSelection}
-          />
+        {messages.map((msg, idx) => (
+          <div key={msg.id} className={idx === messages.length - 1 ? "message-enter" : undefined}>
+            <MessageBubble
+              message={msg}
+              onWidgetSubmit={handleWidgetSubmit}
+              onTrialSelection={handleTrialSelection}
+            />
+          </div>
         ))}
 
         {(isTyping || isServerProcessing) && !pendingIdRef.current && (
@@ -566,7 +555,7 @@ export function Chat({ sessionId, onFiltersChanged, detectedLocation, zeroResult
       />
 
       {/* Input area */}
-      <div className="border-t border-slate-200 bg-white px-4 py-3 shrink-0">
+      <div className="border-t border-slate-200/60 bg-white/80 backdrop-blur-lg px-4 py-3 shrink-0">
         <div className="flex items-center gap-2 max-w-3xl mx-auto">
           <input
             ref={inputRef}
@@ -581,7 +570,7 @@ export function Chat({ sessionId, onFiltersChanged, detectedLocation, zeroResult
           <button
             onClick={sendMessage}
             disabled={!input.trim() || isServerProcessing}
-            className="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-600 text-white flex items-center justify-center hover:from-blue-700 hover:to-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm"
           >
             <Send className="w-4 h-4" />
           </button>

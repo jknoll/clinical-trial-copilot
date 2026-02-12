@@ -551,6 +551,12 @@ class AgentOrchestrator:
                 state = self.session_mgr.get_state(self.session_id)
                 state.search_complete = True
                 self.session_mgr.save_state(self.session_id, state)
+                # Emit filters to sync the stats panel
+                self._pending_emissions.append({
+                    "type": "filters_update",
+                    "condition": tool_input.get("condition", ""),
+                    "statuses": tool_input.get("status"),
+                })
                 # Return slim summaries to keep context small
                 slim = [
                     {
@@ -622,6 +628,15 @@ class AgentOrchestrator:
                 state = self.session_mgr.get_state(self.session_id)
                 state.profile_complete = True
                 self.session_mgr.save_state(self.session_id, state)
+                # Emit condition filter from profile to sync the stats panel.
+                # Note: age/sex are NOT sent because search_trials doesn't filter
+                # by them — eligibility is evaluated during matching, not search.
+                # Sending them would create a false narrowing (0 results in AACT
+                # while the chat still finds trials via the live API).
+                self._pending_emissions.append({
+                    "type": "filters_update",
+                    "condition": profile.condition.primary_diagnosis if profile.condition else "",
+                })
                 return json.dumps({"status": "saved", "profile": profile.model_dump()})
 
             elif tool_name == "update_session_phase":

@@ -19,7 +19,7 @@ export class WSClient {
   }
 
   connect() {
-    const wsUrl = process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8000';
+    const wsUrl = process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8100';
     this.ws = new WebSocket(`${wsUrl}/ws/${this.sessionId}`);
 
     this.ws.onopen = () => {

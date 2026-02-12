@@ -1,7 +1,7 @@
 # Clinical Trial Navigator — Demo Script (3 min)
 
 ## Setup
-- Backend running: `uvicorn backend.main:app --host 0.0.0.0 --port 8000 --reload`
+- Backend running: `uvicorn backend.main:app --host 0.0.0.0 --port 8100 --reload`
 - Frontend running: `cd frontend && npm run dev`
 - Browser open to http://localhost:3000
 

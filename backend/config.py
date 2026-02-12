@@ -7,7 +7,7 @@ class Settings(BaseSettings):
     anthropic_api_key: str = ""
     openfda_api_key: str = ""
     host: str = "0.0.0.0"
-    port: int = 8000
+    port: int = 8100
     log_level: str = "info"
     sessions_dir: Path = Path("sessions")
     model: str = "claude-opus-4-6"

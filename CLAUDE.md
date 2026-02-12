@@ -29,7 +29,7 @@ Built for the "Built with Opus 4.6" hackathon (Cerebral Valley x Anthropic, Feb 
 # Backend
 cd /home/j/Documents/git/clinical-trial-copilot
 pip install -e .
-uvicorn backend.main:app --reload --port 8000
+uvicorn backend.main:app --reload --port 8100
 
 # Frontend
 cd frontend

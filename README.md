@@ -40,7 +40,7 @@ cd clinical-trial-copilot
 pip install -e .
 cp .env.example .env
 # Add your ANTHROPIC_API_KEY to .env
-uvicorn backend.main:app --host 0.0.0.0 --port 8000 --reload
+uvicorn backend.main:app --host 0.0.0.0 --port 8100 --reload
 
 # Frontend (new terminal)
 cd frontend

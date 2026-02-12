@@ -43,14 +43,9 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
         await websocket.send_json({
             "type": "text",
             "content": (
-                "Welcome to the Clinical Trial Navigator. I'm here to help you explore "
-                "clinical trial options.\n\n"
-                "**Important:** I'm an AI assistant that helps you explore clinical trial options. "
-                "I don't provide medical advice. All information should be discussed with your "
-                "healthcare provider before making any decisions.\n\n"
-                "Let's start by learning about your situation. What condition are you exploring "
-                "clinical trials for? Please include the specific diagnosis, stage, or subtype "
-                "if you know it."
+                "Welcome to the Clinical Trial Navigator!\n\n"
+                "What condition are you exploring clinical trials for? "
+                "Please include the specific diagnosis, stage, or subtype if you know it."
             ),
         })
         await websocket.send_json({"type": "text_done"})
@@ -66,8 +61,23 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
 
             msg_type = data.get("type", "message")
 
-            if msg_type == "message":
+            if msg_type == "system_hint":
+                # System hints from the frontend (e.g. zero-results warning)
+                user_content = f"[System: {data.get('content', '')}]"
+            elif msg_type == "message":
                 user_content = data.get("content", "")
+                # Attach browser-detected location context if present
+                location_ctx = data.get("location_context")
+                if location_ctx:
+                    display = location_ctx.get("display", "Unknown")
+                    lat = location_ctx.get("latitude", "")
+                    lon = location_ctx.get("longitude", "")
+                    user_content = (
+                        f"[System note: Browser detected user location as {display} "
+                        f"({lat}, {lon}). Please confirm this with the user during intake "
+                        f"and allow them to specify a different location if they prefer.]\n\n"
+                        f"{user_content}"
+                    )
             elif msg_type == "widget_response":
                 # Format widget response with the question context for the agent
                 selections = data.get("selections", [])

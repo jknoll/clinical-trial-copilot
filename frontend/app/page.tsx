@@ -3,10 +3,16 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Chat } from "@/components/Chat";
 import { StatsPanel } from "@/components/StatsPanel";
-import { AlertTriangle, BarChart3 } from "lucide-react";
+import { BarChart3, FileText, Shield } from "lucide-react";
 import { FacetedFilters, ActiveFilter, StatsData } from "@/lib/types";
-import { fetchStats } from "@/lib/statsApi";
+import { fetchStats, reverseGeocode, fetchTopConditions, ConditionCount } from "@/lib/statsApi";
 import { requestGeolocation, UserLocation } from "@/lib/geolocation";
+
+interface DetectedLocation {
+  display: string;
+  latitude: number;
+  longitude: number;
+}
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8100";
 
@@ -30,6 +36,13 @@ export default function Home() {
   const [statsLoading, setStatsLoading] = useState(false);
   const [statsError, setStatsError] = useState<string | null>(null);
   const [userLocation, setUserLocation] = useState<UserLocation | null>(null);
+  const [detectedLocation, setDetectedLocation] = useState<DetectedLocation | null>(null);
+  const [zeroResults, setZeroResults] = useState(false);
+  const [consentGiven, setConsentGiven] = useState(false);
+  const [topConditions, setTopConditions] = useState<ConditionCount[]>([]);
+  const [mapFlyTo, setMapFlyTo] = useState<{ lat: number; lon: number } | null>(null);
+  const demoRef = useRef<(() => void) | null>(null);
+  const [reportUrls, setReportUrls] = useState<{ html: string; pdf: string } | null>(null);
 
   // Track ongoing fetch to debounce
   const fetchAbortRef = useRef<AbortController | null>(null);
@@ -51,10 +64,33 @@ export default function Home() {
     return () => { ignore = true; };
   }, []);
 
-  // Request geolocation on mount
   useEffect(() => {
-    requestGeolocation().then((loc) => {
-      if (loc) setUserLocation(loc);
+    fetchTopConditions().then(setTopConditions).catch(() => {});
+  }, []);
+
+  // Request geolocation on mount and reverse-geocode for display
+  useEffect(() => {
+    requestGeolocation().then(async (loc) => {
+      if (loc) {
+        setUserLocation(loc);
+        try {
+          const geo = await reverseGeocode(loc.latitude, loc.longitude);
+          setDetectedLocation({
+            display: geo.display,
+            latitude: loc.latitude,
+            longitude: loc.longitude,
+          });
+          setMapFlyTo({ lat: loc.latitude, lon: loc.longitude });
+        } catch {
+          // If reverse geocode fails, still provide coords
+          setDetectedLocation({
+            display: `${loc.latitude.toFixed(2)}, ${loc.longitude.toFixed(2)}`,
+            latitude: loc.latitude,
+            longitude: loc.longitude,
+          });
+          setMapFlyTo({ lat: loc.latitude, lon: loc.longitude });
+        }
+      }
     });
   }, []);
 
@@ -91,6 +127,8 @@ export default function Home() {
       if (!controller.signal.aborted) {
         setStats(data);
         setStatsError(null);
+        // Detect zero results when filters are active
+        setZeroResults(data.matched === 0 && data.total > 0);
       }
     } catch (e) {
       if (!controller.signal.aborted) {
@@ -122,6 +160,25 @@ export default function Home() {
     [doFetchStats]
   );
 
+  const handleConsent = useCallback(() => {
+    setConsentGiven(true);
+  }, []);
+
+  const handleLocationConfirmed = useCallback((lat: number, lon: number) => {
+    setMapFlyTo({ lat, lon });
+  }, []);
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.ctrlKey && e.shiftKey && e.key === "D") {
+        e.preventDefault();
+        demoRef.current?.();
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, []);
+
   return (
     <div className="flex flex-col h-screen">
       {/* Header */}
@@ -146,14 +203,6 @@ export default function Home() {
         </button>
       </header>
 
-      {/* Disclaimer */}
-      <div className="bg-amber-50 border-b border-amber-200 px-4 py-2 flex items-center gap-2 text-sm text-amber-800 shrink-0">
-        <AlertTriangle className="w-4 h-4 shrink-0" />
-        <span>
-          This tool provides information only, not medical advice. Discuss all findings with your healthcare provider.
-        </span>
-      </div>
-
       {/* Main content — split layout */}
       <main className="flex-1 overflow-hidden flex">
         {/* Stats panel (left) */}
@@ -165,6 +214,9 @@ export default function Home() {
               loading={statsLoading}
               error={statsError}
               userLocation={userLocation}
+              topConditions={topConditions}
+              activeCondition={filters.condition}
+              mapFlyTo={mapFlyTo}
             />
           </div>
         )}
@@ -185,7 +237,15 @@ export default function Home() {
               </div>
             </div>
           ) : sessionId ? (
-            <Chat sessionId={sessionId} onFiltersChanged={handleFiltersChanged} />
+            <Chat
+              sessionId={sessionId}
+              onFiltersChanged={handleFiltersChanged}
+              detectedLocation={detectedLocation}
+              zeroResults={zeroResults}
+              demoRef={demoRef}
+              onLocationConfirmed={handleLocationConfirmed}
+              onReportReady={(html, pdf) => setReportUrls({ html, pdf })}
+            />
           ) : (
             <div className="flex items-center justify-center h-full">
               <div className="flex items-center gap-3 text-slate-500">
@@ -198,6 +258,49 @@ export default function Home() {
           )}
         </div>
       </main>
+
+      {reportUrls && (
+        <div className="fixed bottom-4 right-4 z-40 bg-white rounded-xl shadow-lg border border-slate-200 p-4 flex items-center gap-3">
+          <FileText className="w-6 h-6 text-blue-600" />
+          <div>
+            <p className="text-sm font-medium">Your Report</p>
+            <div className="flex gap-2 mt-1">
+              <a href={reportUrls.html} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 hover:underline">View HTML</a>
+              <a href={reportUrls.pdf} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 hover:underline">Download PDF</a>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {!consentGiven && (
+        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-8 text-center">
+            <div className="w-14 h-14 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Shield className="w-7 h-7 text-blue-600" />
+            </div>
+            <h2 className="text-xl font-semibold text-slate-900 mb-3">Before We Begin</h2>
+            <p className="text-sm text-slate-700 mb-4 leading-relaxed">
+              Clinical Trial Navigator helps you find relevant clinical trials from the massive
+              ClinicalTrials.gov database of 500,000+ studies. Through a guided conversation,
+              we&apos;ll narrow down trials that match your condition, location, and preferences
+              — turning an overwhelming search into a manageable shortlist you can discuss with
+              your doctor.
+            </p>
+            <p className="text-sm text-slate-600 mb-6 leading-relaxed">
+              This is an <strong>AI-powered research tool</strong> that helps you explore clinical trial options.
+              It does <strong>not</strong> provide medical advice, diagnoses, or treatment recommendations.
+              All information is for educational purposes only. Always consult your healthcare provider
+              before making any decisions about clinical trials or treatment changes.
+            </p>
+            <button
+              onClick={handleConsent}
+              className="w-full py-3 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-colors"
+            >
+              I Understand and Agree
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

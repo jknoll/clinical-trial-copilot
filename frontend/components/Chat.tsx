@@ -5,15 +5,48 @@ import { Send } from "lucide-react";
 import { WSClient } from "@/lib/websocket";
 import { ChatMessage } from "@/lib/types";
 import { MessageBubble } from "./MessageBubble";
+import { AgentActivity } from "./AgentActivity";
 
 import { FacetedFilters, ActiveFilter } from "@/lib/types";
+
+interface DetectedLocation {
+  display: string;
+  latitude: number;
+  longitude: number;
+}
 
 interface Props {
   sessionId: string;
   onFiltersChanged?: (filters: Partial<FacetedFilters>, display: ActiveFilter[]) => void;
+  detectedLocation?: DetectedLocation | null;
+  zeroResults?: boolean;
+  demoRef?: React.MutableRefObject<(() => void) | null>;
+  onLocationConfirmed?: (lat: number, lon: number) => void;
+  onReportReady?: (htmlUrl: string, pdfUrl: string) => void;
 }
 
-export function Chat({ sessionId, onFiltersChanged }: Props) {
+const DEMO_ANSWERS: [string[], string[]][] = [
+  [["treatment", "tried", "receiving"], ["I haven't tried any treatments yet"]],
+  [["location", "near", "correct", "right area"], ["Yes, that's correct"]],
+  [["age", "old", "your age", "date of birth"], ["55"]],
+  [["sex", "biological", "gender", "male or female", "assigned at birth"], ["Female"]],
+  [["activity", "day-to-day", "daily", "physical", "everyday"], ["I can do all my normal daily activities without any limitations"]],
+  [["trial type", "type of trial", "types of trials", "interested in"], ["I am open to any type"]],
+  [["phase"], ["I am open to any phase"]],
+  [["travel", "distance", "miles", "far", "willing to go"], ["Within 100 miles"]],
+  [["placebo"], ["I am comfortable with the possibility of receiving a placebo"]],
+  [["correct", "change", "confirm", "look right", "accurate", "adjust"], ["Yes, that looks correct"]],
+];
+
+function findDemoAnswer(text: string): string[] | null {
+  const lower = text.toLowerCase();
+  for (const [keywords, answer] of DEMO_ANSWERS) {
+    if (keywords.some((kw) => lower.includes(kw))) return answer;
+  }
+  return null;
+}
+
+export function Chat({ sessionId, onFiltersChanged, detectedLocation, zeroResults, demoRef, onLocationConfirmed, onReportReady }: Props) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
@@ -22,6 +55,14 @@ export function Chat({ sessionId, onFiltersChanged }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const pendingTextRef = useRef<string>("");
   const pendingIdRef = useRef<string>("");
+  const demoModeRef = useRef(false);
+  const [currentPhase, setCurrentPhase] = useState("");
+  const [currentActivity, setCurrentActivity] = useState("");
+  const [activityLog, setActivityLog] = useState<Record<string, string[]>>({});
+  const [isProcessingComplete, setIsProcessingComplete] = useState(false);
+  const handleWidgetSubmitRef = useRef<((questionId: string, selections: string[], question?: string) => void) | null>(null);
+  const onReportReadyRef = useRef(onReportReady);
+  onReportReadyRef.current = onReportReady;
 
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -36,6 +77,8 @@ export function Chat({ sessionId, onFiltersChanged }: Props) {
 
     if (type === "text") {
       setIsTyping(true);
+      // Set intake phase on first assistant text (welcome message)
+      setCurrentPhase((prev) => prev || "intake");
       const content = data.content as string;
       pendingTextRef.current += content;
 
@@ -68,6 +111,33 @@ export function Chat({ sessionId, onFiltersChanged }: Props) {
       pendingIdRef.current = "";
       setIsTyping(false);
       setTimeout(() => inputRef.current?.focus(), 50);
+
+      if (demoModeRef.current) {
+        // Check if the last assistant message contains a question
+        setTimeout(() => {
+          setMessages((prev) => {
+            const lastAssistant = [...prev].reverse().find((m) => m.role === "assistant" && m.messageType === "text");
+            if (lastAssistant && lastAssistant.content.includes("?")) {
+              const answer = findDemoAnswer(lastAssistant.content);
+              if (answer) {
+                // Auto-send text response
+                const userMsg: ChatMessage = {
+                  id: `user_${Date.now()}`,
+                  role: "user",
+                  content: answer[0],
+                  messageType: "text",
+                  timestamp: Date.now(),
+                };
+                // We need to send via websocket too
+                wsRef.current?.send({ type: "message", content: answer[0] });
+                setIsTyping(true);
+                return [...prev, userMsg];
+              }
+            }
+            return prev;
+          });
+        }, 1000);
+      }
     } else if (type === "widget") {
       setIsTyping(false);
       const msg: ChatMessage = {
@@ -79,6 +149,21 @@ export function Chat({ sessionId, onFiltersChanged }: Props) {
         timestamp: Date.now(),
       };
       setMessages((prev) => [...prev, msg]);
+
+      // Demo mode: auto-answer widgets
+      if (demoModeRef.current) {
+        const widgetQuestion = (data.question as string) || "";
+        const answer = findDemoAnswer(widgetQuestion);
+        if (answer) {
+          setTimeout(() => {
+            handleWidgetSubmitRef.current?.(
+              data.questionId as string,
+              answer,
+              widgetQuestion
+            );
+          }, 800);
+        }
+      }
     } else if (type === "trial_cards") {
       setIsTyping(false);
       const msg: ChatMessage = {
@@ -91,14 +176,28 @@ export function Chat({ sessionId, onFiltersChanged }: Props) {
       };
       setMessages((prev) => [...prev, msg]);
     } else if (type === "status") {
-      const msg: ChatMessage = {
-        id: `status_${Date.now()}`,
-        role: "system",
-        content: data.message as string,
-        messageType: "status",
-        timestamp: Date.now(),
-      };
-      setMessages((prev) => [...prev, msg]);
+      // Status messages go to AgentActivity strip only, not into chat
+      if (data.phase) {
+        setCurrentPhase(data.phase as string);
+      }
+      setCurrentActivity(data.message as string || "");
+      // Infer phase from status message keywords
+      const statusMsg = ((data.message as string) || "").toLowerCase();
+      if (statusMsg.includes("searching") || statusMsg.includes("querying") || statusMsg.includes("geocod")) {
+        setCurrentPhase("search");
+      } else if (statusMsg.includes("analyzing") || statusMsg.includes("scoring") || statusMsg.includes("fda")) {
+        setCurrentPhase("matching");
+      } else if (statusMsg.includes("report") || statusMsg.includes("generating")) {
+        setCurrentPhase("report");
+      }
+      // Accumulate status messages per phase for activity log
+      const phase = (data.phase as string) || currentPhase;
+      if (phase && data.message) {
+        setActivityLog(prev => ({
+          ...prev,
+          [phase]: [...(prev[phase] || []), data.message as string]
+        }));
+      }
     } else if (type === "report_ready") {
       setIsTyping(false);
       const msg: ChatMessage = {
@@ -110,9 +209,20 @@ export function Chat({ sessionId, onFiltersChanged }: Props) {
         timestamp: Date.now(),
       };
       setMessages((prev) => [...prev, msg]);
+      // Notify parent to show floating report card
+      if (onReportReadyRef.current) {
+        const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8100";
+        const rawUrl = (data.url as string) || "";
+        const htmlUrl = rawUrl.startsWith("/") ? `${API_URL}${rawUrl}` : rawUrl;
+        const rawPdfUrl = (data.pdf_url as string) || "";
+        const pdfUrl = rawPdfUrl.startsWith("/") ? `${API_URL}${rawPdfUrl}` : rawPdfUrl;
+        onReportReadyRef.current(htmlUrl, pdfUrl);
+      }
     } else if (type === "done") {
       setIsTyping(false);
-      // Refocus input so user can immediately type
+      setCurrentActivity("");
+      // Auto-hide the activity bar after a brief delay
+      setTimeout(() => setIsProcessingComplete(true), 2000);
       setTimeout(() => inputRef.current?.focus(), 50);
     } else if (type === "error") {
       setIsTyping(false);
@@ -139,7 +249,59 @@ export function Chat({ sessionId, onFiltersChanged }: Props) {
     return () => ws.disconnect();
   }, [sessionId, handleMessage]);
 
+  // Send system hint when filters narrow to zero results
+  const prevZeroResults = useRef(false);
+  useEffect(() => {
+    if (zeroResults && !prevZeroResults.current && wsRef.current) {
+      wsRef.current.send({
+        type: "system_hint",
+        content:
+          "IMPORTANT: The real-time database shows 0 clinical trials matching the patient's current criteria. " +
+          "Stop asking narrowing questions. Inform the patient and suggest broadening their criteria.",
+      });
+    }
+    prevZeroResults.current = !!zeroResults;
+  }, [zeroResults]);
+
   const messageCountRef = useRef(0);
+
+  useEffect(() => {
+    if (demoRef) {
+      demoRef.current = () => {
+        demoModeRef.current = true;
+        // Send "breast cancer" directly via websocket
+        const text = "breast cancer";
+        const msg: ChatMessage = {
+          id: `user_${Date.now()}`,
+          role: "user",
+          content: text,
+          messageType: "text",
+          timestamp: Date.now(),
+        };
+        setMessages((prev) => [...prev, msg]);
+        setIsTyping(true);
+
+        const payload: {
+          type: string;
+          content: string;
+          location_context?: { display: string; latitude: number; longitude: number };
+        } = { type: "message", content: text };
+        if (detectedLocation) {
+          payload.location_context = {
+            display: detectedLocation.display,
+            latitude: detectedLocation.latitude,
+            longitude: detectedLocation.longitude,
+          };
+        }
+        wsRef.current?.send(payload);
+
+        if (onFiltersChanged) {
+          onFiltersChanged({ condition: text }, [{ key: "condition", label: "Condition", value: text }]);
+        }
+        messageCountRef.current++;
+      };
+    }
+  }, [demoRef, detectedLocation, onFiltersChanged]);
 
   const sendMessage = useCallback(() => {
     const text = input.trim();
@@ -155,7 +317,20 @@ export function Chat({ sessionId, onFiltersChanged }: Props) {
     setMessages((prev) => [...prev, msg]);
     setInput("");
     setIsTyping(true);
-    wsRef.current.send({ type: "message", content: text });
+    const payload: {
+      type: string;
+      content: string;
+      location_context?: { display: string; latitude: number; longitude: number };
+    } = { type: "message", content: text };
+    // Attach detected location on first message so the agent can confirm it
+    if (messageCountRef.current === 0 && detectedLocation) {
+      payload.location_context = {
+        display: detectedLocation.display,
+        latitude: detectedLocation.latitude,
+        longitude: detectedLocation.longitude,
+      };
+    }
+    wsRef.current.send(payload);
     inputRef.current?.focus();
 
     // First typed message is likely the condition
@@ -163,7 +338,7 @@ export function Chat({ sessionId, onFiltersChanged }: Props) {
     if (messageCountRef.current === 1 && onFiltersChanged) {
       onFiltersChanged({ condition: text }, [{ key: "condition", label: "Condition", value: text }]);
     }
-  }, [input, onFiltersChanged]);
+  }, [input, onFiltersChanged, detectedLocation]);
 
   const handleWidgetSubmit = useCallback(
     (questionId: string, selections: string[], question?: string) => {
@@ -190,15 +365,15 @@ export function Chat({ sessionId, onFiltersChanged }: Props) {
         const q = question.toLowerCase();
         const val = selections.join(", ");
 
-        if (q.includes("condition") || q.includes("diagnosis") || q.includes("looking for")) {
+        if (q.includes("condition") || q.includes("diagnosis") || q.includes("looking for") || q.includes("what condition") || q.includes("exploring clinical trials for")) {
           onFiltersChanged({ condition: val }, [{ key: "condition", label: "Condition", value: val }]);
-        } else if (q.includes("age") || q.includes("old")) {
+        } else if (q.includes("age") || q.includes("old") || q.includes("your age") || q.includes("date of birth")) {
           const ageMatch = val.match(/(\d+)/);
           if (ageMatch) {
             const age = parseInt(ageMatch[1]);
             onFiltersChanged({ age }, [{ key: "age", label: "Age", value: String(age) }]);
           }
-        } else if (q.includes("sex") || q.includes("gender") || q.includes("biological")) {
+        } else if (q.includes("sex") || q.includes("gender") || q.includes("biological") || q.includes("male or female") || q.includes("assigned at birth")) {
           onFiltersChanged({ sex: selections[0] }, [{ key: "sex", label: "Sex", value: selections[0] }]);
         } else if (q.includes("phase")) {
           // Phases don't directly map to stats filters but we show them
@@ -207,9 +382,22 @@ export function Chat({ sessionId, onFiltersChanged }: Props) {
           onFiltersChanged({ statuses: selections }, [{ key: "statuses", label: "Status", value: val }]);
         }
       }
+
+      // Detect location confirmation
+      if (onLocationConfirmed && question) {
+        const q = question.toLowerCase();
+        if ((q.includes("location") || q.includes("near") || q.includes("area") || q.includes("correct")) && detectedLocation) {
+          const affirmative = selections.some((s) => s.toLowerCase().includes("yes") || s.toLowerCase().includes("correct"));
+          if (affirmative) {
+            onLocationConfirmed(detectedLocation.latitude, detectedLocation.longitude);
+          }
+        }
+      }
     },
-    [onFiltersChanged]
+    [onFiltersChanged, onLocationConfirmed, detectedLocation]
   );
+
+  handleWidgetSubmitRef.current = handleWidgetSubmit;
 
   const handleTrialSelection = useCallback(
     (trialIds: string[]) => {
@@ -251,6 +439,15 @@ export function Chat({ sessionId, onFiltersChanged }: Props) {
 
         <div ref={messagesEndRef} />
       </div>
+
+      {/* Agent activity strip */}
+      <AgentActivity
+        currentPhase={currentPhase}
+        activity={currentActivity}
+        isProcessing={isTyping}
+        activityLog={activityLog}
+        isComplete={isProcessingComplete}
+      />
 
       {/* Input area */}
       <div className="border-t border-slate-200 bg-white px-4 py-3 shrink-0">

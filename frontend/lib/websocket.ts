@@ -54,6 +54,12 @@ export class WSClient {
     question?: string;
     selections?: string[];
     trialIds?: string[];
+    location_context?: {
+      display: string;
+      latitude: number;
+      longitude: number;
+    };
+    [key: string]: unknown;
   }) {
     if (this.ws?.readyState === WebSocket.OPEN) {
       this.ws.send(JSON.stringify(message));

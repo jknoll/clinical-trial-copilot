@@ -5,7 +5,8 @@ import { FunnelChart } from "./charts/FunnelChart";
 import { PhaseDonut } from "./charts/PhaseDonut";
 import { StatusBar } from "./charts/StatusBar";
 import { StatsMap } from "./charts/StatsMap";
-import { Database, X, Filter, TrendingDown } from "lucide-react";
+import { DiseaseBar } from "./charts/DiseaseBar";
+import { Database, X, Filter, TrendingDown, Activity } from "lucide-react";
 
 interface Props {
   stats: StatsData | null;
@@ -13,9 +14,12 @@ interface Props {
   loading: boolean;
   error: string | null;
   userLocation?: { latitude: number; longitude: number } | null;
+  topConditions?: { condition: string; count: number }[];
+  activeCondition?: string;
+  mapFlyTo?: { lat: number; lon: number } | null;
 }
 
-export function StatsPanel({ stats, activeFilters, loading, error, userLocation }: Props) {
+export function StatsPanel({ stats, activeFilters, loading, error, userLocation, topConditions, activeCondition, mapFlyTo }: Props) {
   if (error) {
     return (
       <div className="h-full flex flex-col items-center justify-center p-6 text-center">
@@ -54,7 +58,7 @@ export function StatsPanel({ stats, activeFilters, loading, error, userLocation 
               of {stats.total.toLocaleString()}
             </span>
           </div>
-          <p className="text-blue-100 text-sm">clinical trials match your criteria</p>
+          <p className="text-blue-100 text-sm">active clinical trials match your criteria</p>
           <div className="mt-3 h-2 bg-blue-800/50 rounded-full overflow-hidden">
             <div
               className="h-full bg-white/80 rounded-full transition-all duration-700 ease-out"
@@ -85,6 +89,32 @@ export function StatsPanel({ stats, activeFilters, loading, error, userLocation 
           </div>
         )}
 
+        {/* Geographic map */}
+        {Object.keys(stats.geo_distribution).length > 0 && (
+          <Section title="US Trial Locations">
+            <StatsMap data={stats.geo_distribution} userLocation={userLocation} flyTo={mapFlyTo} />
+          </Section>
+        )}
+
+        {/* Top conditions */}
+        {topConditions && topConditions.length > 0 && (
+          <Section title="Top Conditions" icon={<Activity className="w-3.5 h-3.5" />}>
+            <DiseaseBar
+              data={(() => {
+                if (!activeCondition || !stats) return topConditions;
+                const needle = activeCondition.toLowerCase();
+                const found = topConditions.some(c => c.condition.toLowerCase().includes(needle));
+                if (!found && stats.matched > 0) {
+                  return [...topConditions, { condition: activeCondition, count: stats.matched, isUserCondition: true }];
+                }
+                return topConditions;
+              })()}
+              activeCondition={activeCondition}
+              userCondition={activeCondition}
+            />
+          </Section>
+        )}
+
         {/* Search funnel */}
         {stats.funnel.length > 1 && (
           <Section title="Search Funnel" icon={<TrendingDown className="w-3.5 h-3.5" />}>
@@ -102,14 +132,7 @@ export function StatsPanel({ stats, activeFilters, loading, error, userLocation 
         {/* Status breakdown */}
         {Object.keys(stats.status_distribution).length > 0 && (
           <Section title="Status Breakdown">
-            <StatusBar data={stats.status_distribution} />
-          </Section>
-        )}
-
-        {/* Geographic map */}
-        {Object.keys(stats.geo_distribution).length > 0 && (
-          <Section title="US Trial Locations">
-            <StatsMap data={stats.geo_distribution} userLocation={userLocation} />
+            <StatusBar data={stats.status_distribution} allData={stats.all_status_distribution} />
           </Section>
         )}
 

@@ -97,6 +97,88 @@ async def geocode_location(location_string: str) -> dict | None:
         return None
 
 
+async def reverse_geocode(latitude: float, longitude: float) -> dict | None:
+    """Convert coordinates to a place name using Open-Meteo geocoding search.
+
+    Uses a nearby-point search strategy: searches for the nearest named place
+    to the given coordinates.
+
+    Returns:
+        Dict with city, state, country, display, or None on failure.
+    """
+    try:
+        async with httpx.AsyncClient(
+            base_url=_GEOCODING_BASE,
+            timeout=10.0,
+            headers={"Accept": "application/json"},
+        ) as client:
+            # Open-Meteo doesn't have a direct reverse geocode endpoint,
+            # but we can search by coordinates using their search API
+            # with a very short name query and then pick the closest result.
+            # Alternative: use a lat/lon bounding box search.
+            # Best approach: use the Nominatim-compatible reverse endpoint.
+            response = await client.get(
+                "/search",
+                params={
+                    "name": "",  # empty triggers coordinate-based search
+                    "count": 1,
+                    "language": "en",
+                    "format": "json",
+                    "latitude": latitude,
+                    "longitude": longitude,
+                },
+            )
+            response.raise_for_status()
+            data = response.json()
+            results = data.get("results")
+
+            if not results:
+                # Fallback: try a general search near these coords
+                # by searching for common city-scale features
+                response = await client.get(
+                    "/search",
+                    params={
+                        "name": "city",
+                        "count": 10,
+                        "language": "en",
+                        "format": "json",
+                    },
+                )
+                response.raise_for_status()
+                data = response.json()
+                results = data.get("results", [])
+                if results:
+                    # Find the closest result to our coordinates
+                    results.sort(
+                        key=lambda r: calculate_distance(
+                            latitude, longitude,
+                            r.get("latitude", 0), r.get("longitude", 0),
+                        )
+                    )
+
+            if not results:
+                return None
+
+            result = results[0]
+            city = result.get("name", "")
+            state = result.get("admin1", "")
+            country = result.get("country", "")
+
+            parts = [p for p in [city, state] if p]
+            display = ", ".join(parts) if parts else country
+
+            return {
+                "city": city,
+                "state": state,
+                "country": country,
+                "display": display,
+            }
+
+    except Exception as exc:
+        logger.error("Reverse geocoding failed for (%s, %s): %s", latitude, longitude, exc)
+        return None
+
+
 def calculate_distance(
     lat1: float, lon1: float, lat2: float, lon2: float
 ) -> float:

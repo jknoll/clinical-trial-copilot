@@ -82,13 +82,40 @@ async def get_report_pdf(session_id: str):
     html = session_mgr.get_report(session_id)
     if html is None:
         return JSONResponse({"error": "Report not yet generated"}, status_code=404)
-    from backend.report.pdf_generator import generate_pdf
-    pdf_bytes = await generate_pdf(html)
-    return Response(
-        content=pdf_bytes,
-        media_type="application/pdf",
-        headers={"Content-Disposition": f"attachment; filename=trial-report-{session_id[:8]}.pdf"},
-    )
+
+    from backend.report.pdf_generator import PDFGenerationError, generate_pdf
+
+    try:
+        pdf_bytes = await generate_pdf(html)
+        return Response(
+            content=pdf_bytes,
+            media_type="application/pdf",
+            headers={"Content-Disposition": f"attachment; filename=trial-report-{session_id[:8]}.pdf"},
+        )
+    except PDFGenerationError as exc:
+        logger.warning("PDF generation failed, returning HTML fallback: %s", exc)
+        banner = (
+            '<div style="background:#fff3cd;color:#856404;padding:12px 16px;'
+            "border:1px solid #ffc107;border-radius:4px;margin-bottom:16px;"
+            'font-family:sans-serif;font-size:14px;">'
+            "<strong>PDF generation unavailable</strong> &mdash; showing HTML version. "
+            "To enable PDF export, run <code>playwright install chromium</code> on the server."
+            "</div>"
+        )
+        # Inject the banner right after <body> if present, otherwise prepend.
+        if "<body" in html.lower():
+            import re
+
+            fallback_html = re.sub(
+                r"(<body[^>]*>)",
+                rf"\1{banner}",
+                html,
+                count=1,
+                flags=re.IGNORECASE,
+            )
+        else:
+            fallback_html = banner + html
+        return HTMLResponse(content=fallback_html)
 
 
 # Stats API (direct REST, not through Claude)
@@ -109,6 +136,14 @@ async def startup_aact_pool():
             logger.warning(f"AACT database connection failed (stats panel will be unavailable): {e}")
     else:
         logger.warning("AACT_DATABASE_URL not set — stats panel will be unavailable")
+
+
+@app.on_event("startup")
+async def startup_check_playwright():
+    """Check if Playwright browsers are installed and log a warning if not."""
+    from backend.report.pdf_generator import check_playwright_browsers
+
+    check_playwright_browsers()
 
 
 @app.on_event("shutdown")

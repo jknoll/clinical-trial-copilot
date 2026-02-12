@@ -377,7 +377,7 @@ TOOLS: list[dict[str, Any]] = [
     },
     {
         "name": "save_matched_trials",
-        "description": "Save scored and ranked trial matches after eligibility analysis.",
+        "description": "Save scored and ranked trial matches after eligibility analysis. Populate ALL fields for a complete report — especially inclusion_scores, exclusion_scores, what_to_expect, plain_language_summary, nearest_location, and adverse_events.",
         "input_schema": {
             "type": "object",
             "properties": {
@@ -390,10 +390,82 @@ TOOLS: list[dict[str, Any]] = [
                             "brief_title": {"type": "string"},
                             "phase": {"type": "string"},
                             "overall_status": {"type": "string"},
-                            "fit_score": {"type": "number"},
+                            "fit_score": {
+                                "type": "number",
+                                "description": "Fit score as a percentage integer from 0 to 100 (e.g. 65 for 65% fit). Do NOT use a 0-1 decimal.",
+                            },
                             "fit_summary": {"type": "string"},
-                            "plain_language_summary": {"type": "string"},
+                            "plain_language_summary": {
+                                "type": "string",
+                                "description": "A plain-language explanation of what this trial is studying, written at an 8th grade reading level.",
+                            },
+                            "what_to_expect": {
+                                "type": "string",
+                                "description": "What the patient should expect if they participate — visit frequency, procedures, duration, etc.",
+                            },
+                            "inclusion_scores": {
+                                "type": "array",
+                                "description": "Scored inclusion criteria with icons and plain-language explanations.",
+                                "items": {
+                                    "type": "object",
+                                    "properties": {
+                                        "criterion": {"type": "string"},
+                                        "status": {
+                                            "type": "string",
+                                            "enum": ["met", "not_met", "needs_discussion", "not_enough_info"],
+                                        },
+                                        "icon": {
+                                            "type": "string",
+                                            "description": "Status icon: use ✅ for met, ❌ for not_met, ❓ for needs_discussion, ➖ for not_enough_info",
+                                        },
+                                        "explanation": {"type": "string"},
+                                        "plain_language": {"type": "string"},
+                                    },
+                                    "required": ["criterion", "status", "icon"],
+                                },
+                            },
+                            "exclusion_scores": {
+                                "type": "array",
+                                "description": "Scored exclusion criteria with icons and plain-language explanations.",
+                                "items": {
+                                    "type": "object",
+                                    "properties": {
+                                        "criterion": {"type": "string"},
+                                        "status": {
+                                            "type": "string",
+                                            "enum": ["met", "not_met", "needs_discussion", "not_enough_info"],
+                                        },
+                                        "icon": {
+                                            "type": "string",
+                                            "description": "Status icon: use ✅ for met (patient does NOT have exclusion), ❌ for not_met (patient HAS exclusion), ❓ for needs_discussion, ➖ for not_enough_info",
+                                        },
+                                        "explanation": {"type": "string"},
+                                        "plain_language": {"type": "string"},
+                                    },
+                                    "required": ["criterion", "status", "icon"],
+                                },
+                            },
+                            "nearest_location": {
+                                "type": "object",
+                                "description": "The nearest trial site to the patient.",
+                                "properties": {
+                                    "facility": {"type": "string"},
+                                    "city": {"type": "string"},
+                                    "state": {"type": "string"},
+                                    "country": {"type": "string"},
+                                    "distance_miles": {"type": "number"},
+                                    "contact_phone": {"type": "string"},
+                                    "contact_email": {"type": "string"},
+                                },
+                            },
+                            "adverse_events": {
+                                "type": "array",
+                                "items": {"type": "string"},
+                                "description": "Most commonly reported adverse events/side effects for the trial's intervention(s).",
+                            },
                             "interventions": {"type": "array", "items": {"type": "string"}},
+                            "enrollment_count": {"type": "integer", "description": "Number of participants enrolled or planned."},
+                            "start_date": {"type": "string", "description": "Trial start date."},
                             "sponsor": {"type": "string"},
                         },
                     },
@@ -546,6 +618,11 @@ class AgentOrchestrator:
                 state = self.session_mgr.get_state(self.session_id)
                 state.phase = SessionPhase(tool_input["phase"])
                 self.session_mgr.save_state(self.session_id, state)
+                self._pending_emissions.append({
+                    "type": "status",
+                    "phase": tool_input["phase"],
+                    "message": f"Moving to {tool_input['phase']} phase...",
+                })
                 return json.dumps({"status": "updated", "phase": tool_input["phase"]})
 
             elif tool_name == "emit_widget":
@@ -576,6 +653,11 @@ class AgentOrchestrator:
 
             elif tool_name == "save_matched_trials":
                 trials_data = tool_input.get("trials", [])
+                # Normalize fit_score: if Claude passed a 0-1 float, convert to 0-100 percentage
+                for t in trials_data:
+                    score = t.get("fit_score", 0)
+                    if isinstance(score, (int, float)) and 0 < score <= 1.0:
+                        t["fit_score"] = score * 100
                 matched = [MatchedTrial(**t) for t in trials_data]
                 self.session_mgr.save_matched_trials(self.session_id, matched)
                 state = self.session_mgr.get_state(self.session_id)

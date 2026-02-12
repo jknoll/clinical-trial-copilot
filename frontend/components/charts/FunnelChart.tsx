@@ -1,6 +1,7 @@
 "use client";
 
 import { FunnelStep } from "@/lib/types";
+import { CHART_PALETTE } from "@/lib/chartPalette";
 import {
   BarChart,
   Bar,
@@ -11,10 +12,12 @@ import {
   Cell,
 } from "recharts";
 
-const COLORS = ["#1e40af", "#2563eb", "#3b82f6", "#60a5fa", "#93c5fd", "#bfdbfe"];
-
 interface Props {
   data: FunnelStep[];
+}
+
+function titleCase(s: string): string {
+  return s.replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
 export function FunnelChart({ data }: Props) {
@@ -22,7 +25,8 @@ export function FunnelChart({ data }: Props) {
 
   const formatted = data.map((d, i) => ({
     ...d,
-    fill: COLORS[i % COLORS.length],
+    stage: titleCase(d.stage),
+    fill: CHART_PALETTE[i % CHART_PALETTE.length],
   }));
 
   return (
@@ -41,8 +45,12 @@ export function FunnelChart({ data }: Props) {
             contentStyle={{ fontSize: 12 }}
           />
           <Bar dataKey="count" radius={[0, 4, 4, 0]} animationDuration={600}>
-            {formatted.map((_, i) => (
-              <Cell key={i} fill={COLORS[i % COLORS.length]} />
+            {formatted.map((d, i) => (
+              <Cell
+                key={i}
+                fill={CHART_PALETTE[i % CHART_PALETTE.length]}
+                fillOpacity={data[0].count > 0 ? 0.5 + 0.5 * (d.count / data[0].count) : 1}
+              />
             ))}
           </Bar>
         </BarChart>

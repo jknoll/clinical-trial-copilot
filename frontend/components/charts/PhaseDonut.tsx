@@ -9,10 +9,7 @@ import {
   Legend,
 } from "recharts";
 
-const COLORS = [
-  "#1e40af", "#2563eb", "#3b82f6", "#60a5fa",
-  "#93c5fd", "#bfdbfe", "#1e3a5f", "#0ea5e9", "#7dd3fc",
-];
+import { CHART_PALETTE } from "@/lib/chartPalette";
 
 const PHASE_LABELS: Record<string, string> = {
   "EARLY_PHASE1": "Early Phase 1",
@@ -57,7 +54,7 @@ export function PhaseDonut({ data }: Props) {
             label={false}
           >
             {entries.map((_, i) => (
-              <Cell key={i} fill={COLORS[i % COLORS.length]} />
+              <Cell key={i} fill={CHART_PALETTE[i % CHART_PALETTE.length]} />
             ))}
           </Pie>
           <Tooltip

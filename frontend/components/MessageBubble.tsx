@@ -139,7 +139,11 @@ export function MessageBubble({ message, onWidgetSubmit, onTrialSelection }: Pro
   }
 
   if (message.messageType === "report_ready") {
-    const url = (message.metadata?.url as string) || "#";
+    const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8100";
+    const rawUrl = (message.metadata?.url as string) || "";
+    const url = rawUrl.startsWith("/") ? `${API_URL}${rawUrl}` : rawUrl || "#";
+    const rawPdfUrl = (message.metadata?.pdf_url as string) || "";
+    const pdfUrl = rawPdfUrl.startsWith("/") ? `${API_URL}${rawPdfUrl}` : rawPdfUrl;
     return (
       <div className="chat-bubble-assistant">
         <div className="flex items-center gap-3">
@@ -154,6 +158,16 @@ export function MessageBubble({ message, onWidgetSubmit, onTrialSelection }: Pro
             >
               View Report
             </a>
+            {pdfUrl && (
+              <a
+                href={pdfUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-blue-600 hover:underline text-sm ml-3"
+              >
+                Download PDF
+              </a>
+            )}
           </div>
         </div>
       </div>

@@ -1,7 +1,7 @@
 "use client";
 
-import { useMemo } from "react";
-import { MapContainer, TileLayer, CircleMarker, Tooltip } from "react-leaflet";
+import { useMemo, useEffect } from "react";
+import { MapContainer, TileLayer, CircleMarker, Tooltip, useMap } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 
 // US state centroids for plotting
@@ -62,9 +62,18 @@ const STATE_COORDS: Record<string, [number, number]> = {
 interface Props {
   data: Record<string, number>;
   userLocation?: { latitude: number; longitude: number } | null;
+  flyTo?: { lat: number; lon: number } | null;
 }
 
-export function StatsMapInner({ data, userLocation }: Props) {
+function MapFlyTo({ target }: { target: { lat: number; lon: number } | null }) {
+  const map = useMap();
+  useEffect(() => {
+    if (target) map.flyTo([target.lat, target.lon], 6, { duration: 1.5 });
+  }, [target, map]);
+  return null;
+}
+
+export function StatsMapInner({ data, userLocation, flyTo }: Props) {
   const entries = useMemo(() => {
     return Object.entries(data)
       .filter(([state]) => STATE_COORDS[state])
@@ -92,6 +101,7 @@ export function StatsMapInner({ data, userLocation }: Props) {
         zoomControl={false}
         attributionControl={false}
       >
+        <MapFlyTo target={flyTo ?? null} />
         <TileLayer
           url="https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png"
         />

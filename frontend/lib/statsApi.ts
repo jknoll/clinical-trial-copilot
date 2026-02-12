@@ -2,11 +2,35 @@ import { FacetedFilters, StatsData } from "./types";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8100";
 
+export interface ConditionCount {
+  condition: string;
+  count: number;
+}
+
+export async function fetchTopConditions(limit = 15): Promise<ConditionCount[]> {
+  const res = await fetch(`${API_URL}/api/stats/top-conditions?limit=${limit}`);
+  if (!res.ok) throw new Error(`Top conditions failed: ${res.status}`);
+  return res.json();
+}
+
 export async function fetchTotalCount(): Promise<number> {
   const res = await fetch(`${API_URL}/api/stats/total`);
   if (!res.ok) throw new Error(`Stats total failed: ${res.status}`);
   const data = await res.json();
   return data.total;
+}
+
+export async function reverseGeocode(
+  latitude: number,
+  longitude: number
+): Promise<{ city: string; state: string; display: string }> {
+  const res = await fetch(`${API_URL}/api/stats/geo/reverse`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ latitude, longitude }),
+  });
+  if (!res.ok) throw new Error(`Reverse geocode failed: ${res.status}`);
+  return res.json();
 }
 
 export async function fetchStats(filters: FacetedFilters): Promise<StatsData> {

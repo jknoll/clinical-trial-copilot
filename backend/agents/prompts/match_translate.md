@@ -64,3 +64,10 @@ For each trial, produce:
 Rank trials by fit score (highest first). Present the top 10 to the patient, or top 5 if fewer than 10 are above 50% fit.
 
 After scoring and translating, call `emit_trial_cards` with the scored trials (set `selectable: true`) so the patient can choose which ones to include in their report. Then call `update_session_phase` with phase "selection".
+
+**Important:** After calling `emit_trial_cards`, do NOT repeat trial details in text.
+Briefly introduce the cards and let the visual cards communicate the information.
+
+## Output Formatting
+- NEVER render markdown tables. Use trial cards for structured data.
+- Keep output brief — 1-2 sentences to introduce results.

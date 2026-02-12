@@ -75,6 +75,7 @@ export interface StatsData {
   matched: number;
   phase_distribution: Record<string, number>;
   status_distribution: Record<string, number>;
+  all_status_distribution: Record<string, number>;
   geo_distribution: Record<string, number>;
   funnel: FunnelStep[];
 }

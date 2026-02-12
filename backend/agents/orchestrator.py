@@ -551,12 +551,15 @@ class AgentOrchestrator:
                 state = self.session_mgr.get_state(self.session_id)
                 state.search_complete = True
                 self.session_mgr.save_state(self.session_id, state)
-                # Emit filters to sync the stats panel
-                self._pending_emissions.append({
-                    "type": "filters_update",
-                    "condition": tool_input.get("condition", ""),
-                    "statuses": tool_input.get("status"),
-                })
+                # Emit filters to sync the stats panel.
+                # Only emit statuses — do NOT override condition, since the user's
+                # original condition was set on first message and Claude may search
+                # with a broader/different term (e.g. "bone sarcoma" vs "ewing sarcoma").
+                emission: dict[str, Any] = {"type": "filters_update"}
+                if tool_input.get("status"):
+                    emission["statuses"] = tool_input["status"]
+                if len(emission) > 1:
+                    self._pending_emissions.append(emission)
                 # Return slim summaries to keep context small
                 slim = [
                     {
@@ -633,10 +636,19 @@ class AgentOrchestrator:
                 # by them — eligibility is evaluated during matching, not search.
                 # Sending them would create a false narrowing (0 results in AACT
                 # while the chat still finds trials via the live API).
-                self._pending_emissions.append({
+                profile_emission: dict[str, Any] = {
                     "type": "filters_update",
                     "condition": profile.condition.primary_diagnosis if profile.condition else "",
-                })
+                }
+                if profile.location:
+                    if profile.location.description:
+                        profile_emission["location"] = profile.location.description
+                    if profile.location.latitude and profile.location.longitude:
+                        profile_emission["latitude"] = profile.location.latitude
+                        profile_emission["longitude"] = profile.location.longitude
+                    if profile.location.max_travel_miles:
+                        profile_emission["distance_miles"] = profile.location.max_travel_miles
+                self._pending_emissions.append(profile_emission)
                 return json.dumps({"status": "saved", "profile": profile.model_dump()})
 
             elif tool_name == "update_session_phase":
@@ -949,6 +961,24 @@ class AgentOrchestrator:
                         "type": "status",
                         "phase": "geocoding",
                         "message": f"Looking up location: {tu['input'].get('location_string', '')}...",
+                    }
+                elif tu["name"] == "calculate_distance":
+                    yield {
+                        "type": "status",
+                        "phase": "matching",
+                        "message": "Calculating distance to trial site...",
+                    }
+                elif tu["name"] == "get_trial_locations":
+                    yield {
+                        "type": "status",
+                        "phase": "matching",
+                        "message": f"Fetching locations for {tu['input'].get('nct_id', '')}...",
+                    }
+                elif tu["name"] == "get_health_import_summary":
+                    yield {
+                        "type": "status",
+                        "phase": "matching",
+                        "message": "Reviewing imported health data...",
                     }
 
                 result = await self._execute_tool(tu["name"], tu["input"])

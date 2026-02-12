@@ -253,6 +253,17 @@ export function Chat({ sessionId, onFiltersChanged, detectedLocation, zeroResult
           partial.sex = data.sex as string;
           display.push({ key: "sex", label: "Sex", value: data.sex as string });
         }
+        if (data.location) {
+          display.push({ key: "location", label: "Location", value: data.location as string });
+        }
+        if (data.latitude != null && data.longitude != null) {
+          partial.latitude = data.latitude as number;
+          partial.longitude = data.longitude as number;
+        }
+        if (data.distance_miles != null) {
+          partial.distance_miles = data.distance_miles as number;
+          display.push({ key: "distance", label: "Distance", value: `Within ${data.distance_miles} mi` });
+        }
 
         if (display.length > 0) {
           onFiltersChanged(partial as any, display);
@@ -273,12 +284,20 @@ export function Chat({ sessionId, onFiltersChanged, detectedLocation, zeroResult
       } else if (statusMsg.includes("report") || statusMsg.includes("generating")) {
         setCurrentPhase("report");
       }
-      // Accumulate status messages per phase for activity log
-      const phase = (data.phase as string) || currentPhase;
-      if (phase && data.message) {
+      // Accumulate status messages per phase for activity log.
+      // Normalize raw phase keys to canonical ones so AgentActivity can find them.
+      const rawPhase = (data.phase as string) || currentPhase;
+      const PHASE_MAP: Record<string, string> = {
+        searching: "search", analyzing: "matching", fda_lookup: "matching",
+        geocoding: "search", matching: "matching", report: "report",
+        intake: "intake", search: "search", selection: "selection",
+        followup: "followup",
+      };
+      const normalizedPhase = PHASE_MAP[rawPhase] || rawPhase;
+      if (normalizedPhase && data.message) {
         setActivityLog(prev => ({
           ...prev,
-          [phase]: [...(prev[phase] || []), data.message as string]
+          [normalizedPhase]: [...(prev[normalizedPhase] || []), data.message as string]
         }));
       }
     } else if (type === "report_ready") {
@@ -480,12 +499,33 @@ export function Chat({ sessionId, onFiltersChanged, detectedLocation, zeroResult
           const affirmative = selections.some((s) => s.toLowerCase().includes("yes") || s.toLowerCase().includes("correct"));
           if (affirmative && onLocationConfirmed && detectedLocation) {
             onLocationConfirmed(detectedLocation.latitude, detectedLocation.longitude);
+            // Emit location pill
+            if (onFiltersChanged) {
+              onFiltersChanged({}, [{ key: "location", label: "Location", value: detectedLocation.display }]);
+            }
           } else if (!affirmative && onLocationOverride) {
             // User provided a different location
             const locationText = selections.join(", ");
             if (locationText.length > 2) {
               onLocationOverride(locationText);
+              // Emit location pill
+              if (onFiltersChanged) {
+                onFiltersChanged({}, [{ key: "location", label: "Location", value: locationText }]);
+              }
             }
+          }
+        }
+
+        // Detect travel distance widget
+        if (q.includes("travel") || q.includes("distance") || q.includes("miles") || q.includes("how far")) {
+          const val = selections[0] || "";
+          const milesMatch = val.match(/(\d+)\s*miles?/i) || val.match(/within\s+(\d+)/i);
+          if (milesMatch && onFiltersChanged) {
+            const miles = parseInt(milesMatch[1], 10);
+            onFiltersChanged(
+              { distance_miles: miles },
+              [{ key: "distance", label: "Distance", value: `Within ${miles} mi` }]
+            );
           }
         }
       }

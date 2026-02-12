@@ -18,8 +18,9 @@ interface Props {
   data: Record<string, number>;
   userLocation?: { latitude: number; longitude: number } | null;
   flyTo?: { lat: number; lon: number } | null;
+  travelDistance?: number | null;
 }
 
-export function StatsMap({ data, userLocation, flyTo }: Props) {
-  return <StatsMapInner data={data} userLocation={userLocation} flyTo={flyTo} />;
+export function StatsMap({ data, userLocation, flyTo, travelDistance }: Props) {
+  return <StatsMapInner data={data} userLocation={userLocation} flyTo={flyTo} travelDistance={travelDistance} />;
 }

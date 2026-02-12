@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import { CheckCircle2, ClipboardList, Search, GitCompare, CheckSquare, FileText, MessageCircle } from "lucide-react";
 
 const PHASES = [
@@ -20,17 +21,40 @@ interface Props {
 }
 
 export function AgentActivity({ currentPhase, activity, isProcessing, activityLog, isComplete }: Props) {
+  const logEndRef = useRef<HTMLDivElement>(null);
+
+  // Auto-scroll to latest log entry
+  useEffect(() => {
+    logEndRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }, [activityLog, activity]);
+
   if (!currentPhase) return null;
 
   const currentIdx = PHASES.findIndex((p) => p.key === currentPhase);
-  const recentLogs = activityLog?.[currentPhase]?.slice(-3) || [];
+
+  // Collect all log entries across phases in order, with phase tags
+  const allLogs: { phase: string; message: string }[] = [];
+  for (const phase of PHASES) {
+    const entries = activityLog?.[phase.key] || [];
+    for (const msg of entries) {
+      allLogs.push({ phase: phase.key, message: msg });
+    }
+  }
+  // Add current activity if not already in logs
+  if (activity && (allLogs.length === 0 || allLogs[allLogs.length - 1].message !== activity)) {
+    allLogs.push({ phase: currentPhase, message: activity });
+  }
+
+  // Show the most recent entries (tail)
+  const visibleLogs = allLogs.slice(-6);
 
   return (
     <div
-      className={`border-t border-slate-200/60 bg-slate-50/80 backdrop-blur-sm px-4 py-2.5 shrink-0 transition-all duration-500 ${
-        isComplete ? "max-h-0 py-0 overflow-hidden opacity-0" : "max-h-40 opacity-100"
+      className={`border-t border-slate-200/60 bg-slate-50/80 backdrop-blur-sm px-4 shrink-0 transition-all duration-500 ${
+        isComplete ? "max-h-0 py-0 overflow-hidden opacity-0" : "max-h-48 opacity-100 py-2"
       }`}
     >
+      {/* Phase pipeline */}
       <div className="flex items-center gap-1.5 max-w-3xl mx-auto">
         {PHASES.map((phase, i) => {
           const isActive = phase.key === currentPhase;
@@ -66,21 +90,29 @@ export function AgentActivity({ currentPhase, activity, isProcessing, activityLo
           );
         })}
       </div>
-      {/* Status message stack below active phase */}
-      {(activity || recentLogs.length > 0) && (
-        <div className="max-w-3xl mx-auto mt-1.5 space-y-0.5">
-          {recentLogs.slice(-2).map((log, i) => (
-            <p key={i} className={`text-xs text-center truncate ${
-              i === recentLogs.length - 1 || (recentLogs.length <= 2 && i === recentLogs.slice(-2).length - 1)
-                ? "text-slate-500"
-                : "text-slate-400"
-            }`}>
-              {log}
-            </p>
-          ))}
-          {activity && !recentLogs.includes(activity) && (
-            <p className="text-xs text-slate-500 text-center truncate">{activity}</p>
-          )}
+
+      {/* Scrolling activity log */}
+      {visibleLogs.length > 0 && isProcessing && (
+        <div className="max-w-3xl mx-auto mt-1.5 max-h-16 overflow-y-auto activity-log">
+          {visibleLogs.map((entry, i) => {
+            const isLatest = i === visibleLogs.length - 1;
+            return (
+              <div
+                key={`${entry.phase}-${i}`}
+                className={`flex items-center gap-1.5 text-xs leading-relaxed ${
+                  isLatest ? "text-slate-600" : "text-slate-400"
+                }`}
+              >
+                {isLatest && (
+                  <span className="inline-block w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse shrink-0" />
+                )}
+                <span className={`truncate ${isLatest ? "font-medium" : ""}`}>
+                  {entry.message}
+                </span>
+              </div>
+            );
+          })}
+          <div ref={logEndRef} />
         </div>
       )}
     </div>

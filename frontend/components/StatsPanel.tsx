@@ -17,9 +17,10 @@ interface Props {
   topConditions?: { condition: string; count: number }[];
   activeCondition?: string;
   mapFlyTo?: { lat: number; lon: number } | null;
+  travelDistance?: number | null;
 }
 
-export function StatsPanel({ stats, activeFilters, loading, error, userLocation, topConditions, activeCondition, mapFlyTo }: Props) {
+export function StatsPanel({ stats, activeFilters, loading, error, userLocation, topConditions, activeCondition, mapFlyTo, travelDistance }: Props) {
   if (error) {
     return (
       <div className="h-full flex flex-col items-center justify-center p-6 text-center">
@@ -103,7 +104,7 @@ export function StatsPanel({ stats, activeFilters, loading, error, userLocation,
         {/* Geographic map */}
         {Object.keys(stats.geo_distribution).length > 0 && (
           <Section title="US Trial Locations">
-            <StatsMap data={stats.geo_distribution} userLocation={userLocation} flyTo={mapFlyTo} />
+            <StatsMap data={stats.geo_distribution} userLocation={userLocation} flyTo={mapFlyTo} travelDistance={travelDistance} />
           </Section>
         )}
 

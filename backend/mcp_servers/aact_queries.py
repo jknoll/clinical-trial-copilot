@@ -11,6 +11,29 @@ from backend.config import settings
 
 logger = logging.getLogger(__name__)
 
+
+def _build_condition_clauses(
+    condition: str, alias: str, start_idx: int
+) -> tuple[str, list[str], int]:
+    """Build per-word ILIKE clauses for condition matching.
+
+    AACT stores conditions like "sarcoma, ewing" so a single ILIKE '%ewing sarcoma%'
+    misses them.  Splitting into per-word clauses (AND) matches regardless of word order.
+    """
+    words = [w for w in condition.lower().split() if len(w) >= 3]
+    if not words:
+        return "", [], start_idx
+    clauses: list[str] = []
+    params: list[str] = []
+    for w in words:
+        clauses.append(f"{alias}.downcase_name ILIKE ${start_idx}")
+        params.append(f"%{w}%")
+        start_idx += 1
+    join_cond = " AND ".join(clauses)
+    sql = f"INNER JOIN ctgov.conditions {alias} ON {alias}.nct_id = s.nct_id AND {join_cond}"
+    return sql, params, start_idx
+
+
 ACTIVE_STATUSES = [
     "recruiting",
     "not yet recruiting",
@@ -59,12 +82,17 @@ async def get_all_status_distribution(condition: str = "") -> dict[str, int]:
     """Get trial counts for ALL statuses (not just active). Optionally filter by condition."""
     pool = await get_pool()
     if condition:
-        q = """SELECT s.overall_status, COUNT(DISTINCT s.nct_id) as cnt
-               FROM ctgov.studies s
-               INNER JOIN ctgov.conditions c ON c.nct_id = s.nct_id
-                 AND c.downcase_name ILIKE $1
-               GROUP BY s.overall_status ORDER BY cnt DESC"""
-        rows = await pool.fetch(q, f"%{condition.lower()}%")
+        cond_join, cond_params, _ = _build_condition_clauses(condition, "c", 1)
+        if cond_join:
+            q = f"""SELECT s.overall_status, COUNT(DISTINCT s.nct_id) as cnt
+                    FROM ctgov.studies s
+                    {cond_join}
+                    GROUP BY s.overall_status ORDER BY cnt DESC"""
+            rows = await pool.fetch(q, *cond_params)
+        else:
+            rows = await pool.fetch(
+                "SELECT overall_status, COUNT(*) as cnt FROM ctgov.studies GROUP BY overall_status ORDER BY cnt DESC"
+            )
     else:
         q = "SELECT overall_status, COUNT(*) as cnt FROM ctgov.studies GROUP BY overall_status ORDER BY cnt DESC"
         rows = await pool.fetch(q)
@@ -96,11 +124,10 @@ async def query_faceted_stats(filters: dict[str, Any]) -> dict[str, Any]:
 
     condition = filters.get("condition", "").strip()
     if condition:
-        joins.append(
-            f"INNER JOIN ctgov.conditions c ON c.nct_id = s.nct_id AND c.downcase_name ILIKE ${idx}"
-        )
-        params.append(f"%{condition.lower()}%")
-        idx += 1
+        cond_join, cond_params, idx = _build_condition_clauses(condition, "c", idx)
+        if cond_join:
+            joins.append(cond_join)
+            params.extend(cond_params)
 
     # Default to active statuses if none specified
     statuses = filters.get("statuses") or ACTIVE_STATUSES
@@ -219,23 +246,28 @@ async def _build_funnel(pool: asyncpg.Pool, filters: dict[str, Any]) -> list[dic
     if not condition:
         return funnel
 
-    # + Condition
-    row = await pool.fetchval(
-        "SELECT COUNT(DISTINCT c.nct_id) FROM ctgov.conditions c WHERE c.downcase_name ILIKE $1",
-        f"%{condition.lower()}%",
-    )
+    # + Condition (per-word match)
+    cond_join_f, cond_params_f, next_idx = _build_condition_clauses(condition, "c", 1)
+    if cond_join_f:
+        row = await pool.fetchval(
+            f"SELECT COUNT(DISTINCT s.nct_id) FROM ctgov.studies s {cond_join_f}",
+            *cond_params_f,
+        )
+    else:
+        row = 0
     count_condition = int(row)
     funnel.append({"stage": f"Condition: {condition}", "count": count_condition})
 
     statuses = filters.get("statuses")
     if statuses:
         lowered_s = [s.lower() for s in statuses]
-        placeholders = ", ".join(f"${i+2}" for i in range(len(lowered_s)))
+        cond_join_s, cond_params_s, s_idx = _build_condition_clauses(condition, "c", 1)
+        placeholders = ", ".join(f"${s_idx + i}" for i in range(len(lowered_s)))
         row = await pool.fetchval(
             f"""SELECT COUNT(DISTINCT s.nct_id) FROM ctgov.studies s
-                INNER JOIN ctgov.conditions c ON c.nct_id = s.nct_id AND c.downcase_name ILIKE $1
+                {cond_join_s}
                 WHERE LOWER(s.overall_status) IN ({placeholders})""",
-            f"%{condition.lower()}%",
+            *cond_params_s,
             *lowered_s,
         )
         count_status = int(row)
@@ -246,10 +278,9 @@ async def _build_funnel(pool: asyncpg.Pool, filters: dict[str, Any]) -> list[dic
     age = filters.get("age")
     if age is not None:
         age_val = int(age)
-        base_params: list[Any] = [f"%{condition.lower()}%"]
-        base_join = "INNER JOIN ctgov.conditions c ON c.nct_id = s.nct_id AND c.downcase_name ILIKE $1"
+        base_join_a, base_params_a, p_idx = _build_condition_clauses(condition, "c", 1)
+        base_params: list[Any] = list(base_params_a)
         status_where = ""
-        p_idx = 2
         if statuses:
             lowered_s = [s.lower() for s in statuses]
             placeholders = ", ".join(f"${p_idx + i}" for i in range(len(lowered_s)))
@@ -258,7 +289,7 @@ async def _build_funnel(pool: asyncpg.Pool, filters: dict[str, Any]) -> list[dic
             p_idx += len(statuses)
         row = await pool.fetchval(
             f"""SELECT COUNT(DISTINCT s.nct_id) FROM ctgov.studies s
-                {base_join}
+                {base_join_a}
                 INNER JOIN ctgov.eligibilities e ON e.nct_id = s.nct_id
                 WHERE (e.minimum_age IS NULL OR e.minimum_age = '' OR
                     NULLIF(REGEXP_REPLACE(e.minimum_age, '[^0-9]', '', 'g'), '') IS NULL OR

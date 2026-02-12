@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useEffect, useState } from "react";
-import { MapContainer, TileLayer, GeoJSON, Marker, CircleMarker, Tooltip, useMap } from "react-leaflet";
+import { MapContainer, TileLayer, GeoJSON, Marker, CircleMarker, Circle, Tooltip, useMap } from "react-leaflet";
 import L from "leaflet";
 import * as topojson from "topojson-client";
 import type { Topology, GeometryCollection } from "topojson-specification";
@@ -26,17 +26,12 @@ const FIPS_TO_STATE: Record<string, string> = {
   "72": "Puerto Rico",
 };
 
-// County FIPS (5-digit) → state name via first 2 digits
-function countyFipsToState(fips: string): string {
-  return FIPS_TO_STATE[fips.slice(0, 2)] ?? "";
-}
-
-// Module-level cache for counties GeoJSON
-let cachedCounties: FeatureCollection | null = null;
+// Module-level cache for states GeoJSON
+let cachedStates: FeatureCollection | null = null;
 let fetchPromise: Promise<FeatureCollection | null> | null = null;
 
-async function loadCounties(): Promise<FeatureCollection | null> {
-  if (cachedCounties) return cachedCounties;
+async function loadStates(): Promise<FeatureCollection | null> {
+  if (cachedStates) return cachedStates;
   if (fetchPromise) return fetchPromise;
   fetchPromise = fetch("/counties-10m.json")
     .then((res) => {
@@ -44,12 +39,12 @@ async function loadCounties(): Promise<FeatureCollection | null> {
       return res.json();
     })
     .then((topo: Topology) => {
-      const fc = topojson.feature(topo, topo.objects.counties as GeometryCollection) as FeatureCollection;
-      cachedCounties = fc;
+      const fc = topojson.feature(topo, topo.objects.states as GeometryCollection) as FeatureCollection;
+      cachedStates = fc;
       return fc;
     })
     .catch((err) => {
-      console.error("Failed to load counties TopoJSON:", err);
+      console.error("Failed to load states TopoJSON:", err);
       fetchPromise = null;
       return null;
     });
@@ -94,6 +89,7 @@ interface Props {
   data: Record<string, number>;
   userLocation?: { latitude: number; longitude: number } | null;
   flyTo?: { lat: number; lon: number } | null;
+  travelDistance?: number | null;
 }
 
 // Continental US bounds
@@ -115,15 +111,20 @@ function MapFlyTo({ target }: { target: { lat: number; lon: number } | null }) {
   return null;
 }
 
+function fipsToState(fips: string): string {
+  // State FIPS are 2-digit, zero-padded
+  return FIPS_TO_STATE[fips.padStart(2, "0")] ?? "";
+}
+
 function createStyleFn(data: Record<string, number>, maxCount: number) {
   return (feature: Feature | undefined) => {
     if (!feature) return {};
     const fips = String(feature.id ?? "");
-    const stateName = countyFipsToState(fips);
+    const stateName = fipsToState(fips);
     const count = data[stateName] ?? 0;
     return {
       fillColor: getColor(count, maxCount),
-      weight: 0.3,
+      weight: 0.8,
       color: "#94a3b8",
       fillOpacity: 0.75,
     };
@@ -133,7 +134,7 @@ function createStyleFn(data: Record<string, number>, maxCount: number) {
 function createOnEachFeature(data: Record<string, number>, maxCount: number) {
   return (feature: Feature, layer: L.Layer) => {
     const fips = String(feature.id ?? "");
-    const stateName = countyFipsToState(fips);
+    const stateName = fipsToState(fips);
     const count = data[stateName] ?? 0;
 
     layer.bindTooltip(
@@ -143,12 +144,12 @@ function createOnEachFeature(data: Record<string, number>, maxCount: number) {
 
     layer.on({
       mouseover: () => {
-        (layer as L.Path).setStyle({ weight: 1.5, color: "#1e40af", fillOpacity: 0.9 });
+        (layer as L.Path).setStyle({ weight: 2, color: "#1e40af", fillOpacity: 0.9 });
         (layer as L.Path).bringToFront();
       },
       mouseout: () => {
         (layer as L.Path).setStyle({
-          weight: 0.3,
+          weight: 0.8,
           color: "#94a3b8",
           fillOpacity: 0.75,
           fillColor: getColor(count, maxCount),
@@ -158,7 +159,7 @@ function createOnEachFeature(data: Record<string, number>, maxCount: number) {
   };
 }
 
-// Fallback state centroids if counties fail to load
+// Fallback state centroids if TopoJSON fails to load
 const STATE_COORDS: Record<string, [number, number]> = {
   "Alabama": [32.806671, -86.791130], "Alaska": [61.370716, -152.404419],
   "Arizona": [33.729759, -111.431221], "Arkansas": [34.969704, -92.373123],
@@ -188,14 +189,14 @@ const STATE_COORDS: Record<string, [number, number]> = {
   "Wyoming": [42.755966, -107.302490],
 };
 
-export function StatsMapInner({ data, userLocation, flyTo }: Props) {
-  const [counties, setCounties] = useState<FeatureCollection | null>(cachedCounties);
+export function StatsMapInner({ data, userLocation, flyTo, travelDistance }: Props) {
+  const [states, setStates] = useState<FeatureCollection | null>(cachedStates);
 
   useEffect(() => {
-    if (!counties) {
-      loadCounties().then((d) => { if (d) setCounties(d); });
+    if (!states) {
+      loadStates().then((d) => { if (d) setStates(d); });
     }
-  }, [counties]);
+  }, [states]);
 
   const maxCount = useMemo(() => {
     const vals = Object.values(data);
@@ -215,20 +216,20 @@ export function StatsMapInner({ data, userLocation, flyTo }: Props) {
       <MapContainer
         center={[39.8283, -98.5795]}
         zoom={4}
-        scrollWheelZoom={false}
+        scrollWheelZoom={true}
         style={{ height: "200px", width: "100%" }}
-        zoomControl={false}
+        zoomControl={true}
         attributionControl={false}
       >
         <FitUS />
         <MapFlyTo target={flyTo ?? null} />
         <TileLayer url="https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png" />
 
-        {counties && (
-          <GeoJSON key={dataKey} data={counties} style={styleFn} onEachFeature={onEachFeature} />
+        {states && (
+          <GeoJSON key={dataKey} data={states} style={styleFn} onEachFeature={onEachFeature} />
         )}
 
-        {!counties && (
+        {!states && (
           <>
             {Object.entries(data)
               .filter(([state]) => STATE_COORDS[state])
@@ -257,6 +258,20 @@ export function StatsMapInner({ data, userLocation, flyTo }: Props) {
               <span className="text-xs font-medium">Your Location</span>
             </Tooltip>
           </Marker>
+        )}
+
+        {userLocation && travelDistance && (
+          <Circle
+            center={[userLocation.latitude, userLocation.longitude]}
+            radius={travelDistance * 1609.34}
+            pathOptions={{
+              color: "#2563eb",
+              fillColor: "#dbeafe",
+              fillOpacity: 0.15,
+              weight: 1.5,
+              dashArray: "6 4",
+            }}
+          />
         )}
       </MapContainer>
     </div>

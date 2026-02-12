@@ -63,6 +63,9 @@ export interface FacetedFilters {
   sex: string;
   statuses: string[] | null;
   states: string[] | null;
+  latitude: number | null;
+  longitude: number | null;
+  distance_miles: number | null;
 }
 
 export interface FunnelStep {

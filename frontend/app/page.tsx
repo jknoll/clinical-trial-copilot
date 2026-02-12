@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Chat } from "@/components/Chat";
 import { StatsPanel } from "@/components/StatsPanel";
+import { SplitHandle } from "@/components/SplitHandle";
 import { ImportSummary } from "@/components/HealthImport";
 import { BarChart3, FileText, Shield } from "lucide-react";
 import { FacetedFilters, ActiveFilter, StatsData } from "@/lib/types";
@@ -23,6 +24,9 @@ const EMPTY_FILTERS: FacetedFilters = {
   sex: "",
   statuses: null,
   states: null,
+  latitude: null,
+  longitude: null,
+  distance_miles: null,
 };
 
 export default function Home() {
@@ -31,6 +35,7 @@ export default function Home() {
 
   // Stats panel state
   const [showStats, setShowStats] = useState(true);
+  const [panelWidth, setPanelWidth] = useState(440);
   const [filters, setFilters] = useState<FacetedFilters>(EMPTY_FILTERS);
   const [activeFilters, setActiveFilters] = useState<ActiveFilter[]>([]);
   const [stats, setStats] = useState<StatsData | null>(null);
@@ -178,6 +183,7 @@ export default function Home() {
   const handleLocationConfirmed = useCallback((lat: number, lon: number) => {
     setMapFlyTo({ lat, lon });
     setUserLocation({ latitude: lat, longitude: lon });
+    setFilters((prev) => ({ ...prev, latitude: lat, longitude: lon }));
   }, []);
 
   const handleLocationOverride = useCallback((locationText: string) => {
@@ -189,6 +195,7 @@ export default function Home() {
           latitude: result.latitude,
           longitude: result.longitude,
         });
+        setFilters((prev) => ({ ...prev, latitude: result.latitude, longitude: result.longitude }));
       }
     }).catch(() => {});
   }, []);
@@ -202,6 +209,17 @@ export default function Home() {
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
+  }, []);
+
+  // Auto-hide stats panel on narrow viewports
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 768px)");
+    const handler = (e: MediaQueryListEvent | MediaQueryList) => {
+      if (e.matches) setShowStats(false);
+    };
+    handler(mq);
+    mq.addEventListener("change", handler);
+    return () => mq.removeEventListener("change", handler);
   }, []);
 
   return (
@@ -232,18 +250,22 @@ export default function Home() {
       <main className="flex-1 overflow-hidden flex">
         {/* Stats panel (left) */}
         {showStats && (
-          <div className="w-[440px] shrink-0 border-r border-slate-200/60 bg-white/60 backdrop-blur-xl overflow-hidden">
-            <StatsPanel
-              stats={stats}
-              activeFilters={activeFilters}
-              loading={statsLoading}
-              error={statsError}
-              userLocation={userLocation}
-              topConditions={topConditions}
-              activeCondition={filters.condition}
-              mapFlyTo={mapFlyTo}
-            />
-          </div>
+          <>
+            <div className="shrink-0 border-r border-slate-200/60 bg-white/60 backdrop-blur-xl overflow-hidden" style={{ width: panelWidth }}>
+              <StatsPanel
+                stats={stats}
+                activeFilters={activeFilters}
+                loading={statsLoading}
+                error={statsError}
+                userLocation={userLocation}
+                topConditions={topConditions}
+                activeCondition={filters.condition}
+                mapFlyTo={mapFlyTo}
+                travelDistance={filters.distance_miles}
+              />
+            </div>
+            <SplitHandle currentWidth={panelWidth} onResize={setPanelWidth} />
+          </>
         )}
 
         {/* Chat (right) */}

@@ -6,6 +6,7 @@ from pydantic_settings import BaseSettings
 class Settings(BaseSettings):
     anthropic_api_key: str = ""
     openfda_api_key: str = ""
+    aact_database_url: str = ""
     host: str = "0.0.0.0"
     port: int = 8100
     log_level: str = "info"

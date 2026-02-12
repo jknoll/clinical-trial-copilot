@@ -1,18 +1,23 @@
 from __future__ import annotations
 
+import logging
 import os
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse, Response
 
+from backend.config import settings
 from backend.session import SessionManager
+
+logger = logging.getLogger(__name__)
 
 app = FastAPI(title="Clinical Trial Navigator", version="0.1.0")
 
 origins = [
     "http://localhost:3000",
     "http://localhost:3001",
+    "http://localhost:3002",
     "http://127.0.0.1:3000",
 ]
 if os.environ.get("FRONTEND_URL"):
@@ -84,6 +89,33 @@ async def get_report_pdf(session_id: str):
         media_type="application/pdf",
         headers={"Content-Disposition": f"attachment; filename=trial-report-{session_id[:8]}.pdf"},
     )
+
+
+# Stats API (direct REST, not through Claude)
+from backend.api.stats import router as stats_router  # noqa: E402
+
+app.include_router(stats_router)
+
+
+@app.on_event("startup")
+async def startup_aact_pool():
+    if settings.aact_database_url:
+        try:
+            from backend.mcp_servers.aact_queries import get_pool
+
+            await get_pool()
+            logger.info("AACT database pool initialized")
+        except Exception as e:
+            logger.warning(f"AACT database connection failed (stats panel will be unavailable): {e}")
+    else:
+        logger.warning("AACT_DATABASE_URL not set — stats panel will be unavailable")
+
+
+@app.on_event("shutdown")
+async def shutdown_aact_pool():
+    from backend.mcp_servers.aact_queries import close_pool
+
+    await close_pool()
 
 
 # WebSocket endpoint is registered in websocket.py

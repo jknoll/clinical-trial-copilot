@@ -54,3 +54,33 @@ export interface SessionState {
   matchingComplete: boolean;
   reportGenerated: boolean;
 }
+
+// --- Faceted Stats Types ---
+
+export interface FacetedFilters {
+  condition: string;
+  age: number | null;
+  sex: string;
+  statuses: string[] | null;
+  states: string[] | null;
+}
+
+export interface FunnelStep {
+  stage: string;
+  count: number;
+}
+
+export interface StatsData {
+  total: number;
+  matched: number;
+  phase_distribution: Record<string, number>;
+  status_distribution: Record<string, number>;
+  geo_distribution: Record<string, number>;
+  funnel: FunnelStep[];
+}
+
+export interface ActiveFilter {
+  key: string;
+  label: string;
+  value: string;
+}

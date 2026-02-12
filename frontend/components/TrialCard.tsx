@@ -18,9 +18,15 @@ interface Props {
   onToggle?: () => void;
 }
 
+function normalizeFitScore(score: number): number {
+  // Claude sometimes sends 0-1 floats instead of 0-100 percentages
+  return score > 0 && score <= 1 ? Math.round(score * 100) : Math.round(score);
+}
+
 function fitScoreClass(score: number): string {
-  if (score >= 70) return "fit-score-high";
-  if (score >= 40) return "fit-score-medium";
+  const s = normalizeFitScore(score);
+  if (s >= 70) return "fit-score-high";
+  if (s >= 40) return "fit-score-medium";
   return "fit-score-low";
 }
 
@@ -88,7 +94,7 @@ export function TrialCard({
             fitScoreClass(fitScore)
           )}
         >
-          {Math.round(fitScore)}% fit
+          {normalizeFitScore(fitScore)}% fit
         </span>
       </div>
 

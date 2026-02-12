@@ -6,11 +6,14 @@ import { WSClient } from "@/lib/websocket";
 import { ChatMessage } from "@/lib/types";
 import { MessageBubble } from "./MessageBubble";
 
+import { FacetedFilters, ActiveFilter } from "@/lib/types";
+
 interface Props {
   sessionId: string;
+  onFiltersChanged?: (filters: Partial<FacetedFilters>, display: ActiveFilter[]) => void;
 }
 
-export function Chat({ sessionId }: Props) {
+export function Chat({ sessionId, onFiltersChanged }: Props) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
@@ -64,6 +67,7 @@ export function Chat({ sessionId }: Props) {
       pendingTextRef.current = "";
       pendingIdRef.current = "";
       setIsTyping(false);
+      setTimeout(() => inputRef.current?.focus(), 50);
     } else if (type === "widget") {
       setIsTyping(false);
       const msg: ChatMessage = {
@@ -108,6 +112,8 @@ export function Chat({ sessionId }: Props) {
       setMessages((prev) => [...prev, msg]);
     } else if (type === "done") {
       setIsTyping(false);
+      // Refocus input so user can immediately type
+      setTimeout(() => inputRef.current?.focus(), 50);
     } else if (type === "error") {
       setIsTyping(false);
       const msg: ChatMessage = {
@@ -133,6 +139,8 @@ export function Chat({ sessionId }: Props) {
     return () => ws.disconnect();
   }, [sessionId, handleMessage]);
 
+  const messageCountRef = useRef(0);
+
   const sendMessage = useCallback(() => {
     const text = input.trim();
     if (!text || !wsRef.current) return;
@@ -149,7 +157,13 @@ export function Chat({ sessionId }: Props) {
     setIsTyping(true);
     wsRef.current.send({ type: "message", content: text });
     inputRef.current?.focus();
-  }, [input]);
+
+    // First typed message is likely the condition
+    messageCountRef.current++;
+    if (messageCountRef.current === 1 && onFiltersChanged) {
+      onFiltersChanged({ condition: text }, [{ key: "condition", label: "Condition", value: text }]);
+    }
+  }, [input, onFiltersChanged]);
 
   const handleWidgetSubmit = useCallback(
     (questionId: string, selections: string[], question?: string) => {
@@ -170,8 +184,31 @@ export function Chat({ sessionId }: Props) {
         selections,
         question,
       });
+
+      // Extract filters from widget answers for stats panel
+      if (onFiltersChanged && question) {
+        const q = question.toLowerCase();
+        const val = selections.join(", ");
+
+        if (q.includes("condition") || q.includes("diagnosis") || q.includes("looking for")) {
+          onFiltersChanged({ condition: val }, [{ key: "condition", label: "Condition", value: val }]);
+        } else if (q.includes("age") || q.includes("old")) {
+          const ageMatch = val.match(/(\d+)/);
+          if (ageMatch) {
+            const age = parseInt(ageMatch[1]);
+            onFiltersChanged({ age }, [{ key: "age", label: "Age", value: String(age) }]);
+          }
+        } else if (q.includes("sex") || q.includes("gender") || q.includes("biological")) {
+          onFiltersChanged({ sex: selections[0] }, [{ key: "sex", label: "Sex", value: selections[0] }]);
+        } else if (q.includes("phase")) {
+          // Phases don't directly map to stats filters but we show them
+          onFiltersChanged({}, [{ key: "phases", label: "Phases", value: val }]);
+        } else if (q.includes("status") || q.includes("recruiting")) {
+          onFiltersChanged({ statuses: selections }, [{ key: "statuses", label: "Status", value: val }]);
+        }
+      }
     },
-    []
+    [onFiltersChanged]
   );
 
   const handleTrialSelection = useCallback(

@@ -30,11 +30,16 @@ function milesToMeters(miles: number): number {
   return miles * 1609.344;
 }
 
+function normalizeFitScore(score: number): number {
+  return score > 0 && score <= 1 ? Math.round(score * 100) : Math.round(score);
+}
+
 function createTrialIcon(fitScore: number, isSelected: boolean): L.DivIcon {
+  const score = normalizeFitScore(fitScore);
   let color: string;
-  if (fitScore >= 0.7 || fitScore >= 70) {
+  if (score >= 70) {
     color = "#059669"; // emerald-600
-  } else if (fitScore >= 0.4 || fitScore >= 40) {
+  } else if (score >= 40) {
     color = "#d97706"; // amber-600
   } else {
     color = "#dc2626"; // red-600
@@ -159,7 +164,7 @@ export function TrialMapInner({ trials, patientLocation, selectedTrialIds = [] }
                     )}
                   </div>
                   <div className="mt-1 text-xs font-medium">
-                    Fit: {Math.round(trial.fitScore >= 1 ? trial.fitScore : trial.fitScore * 100)}%
+                    Fit: {normalizeFitScore(trial.fitScore)}%
                   </div>
                 </div>
               </Popup>

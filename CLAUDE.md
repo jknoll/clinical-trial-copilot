@@ -17,6 +17,9 @@ Built for the "Built with Opus 4.6" hackathon (Cerebral Valley x Anthropic, Feb 
 - Frontend connects via WebSocket for real-time chat streaming
 - Session state stored as JSON files in `sessions/{session_id}/`
 
+## Frontend Design
+- Design system: @design-system/DESIGN-SYSTEM.md
+
 ## Key Conventions
 - All patient-facing text must include medical disclaimer
 - Never provide medical advice — frame as information for doctor discussions

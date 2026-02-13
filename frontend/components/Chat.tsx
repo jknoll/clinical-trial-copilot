@@ -107,6 +107,7 @@ export function Chat({ sessionId, onFiltersChanged, detectedLocation, zeroResult
   const demoFallbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [currentPhase, setCurrentPhase] = useState("");
   const [deviceImportSummary, setDeviceImportSummary] = useState<ImportSummary | null>(null);
+  const [knownDrugs, setKnownDrugs] = useState<string[]>([]);
   const [currentActivity, setCurrentActivity] = useState("");
   const [activityLog, setActivityLog] = useState<Record<string, LogEntry[]>>({});
   const [isProcessingComplete, setIsProcessingComplete] = useState(false);
@@ -118,8 +119,13 @@ export function Chat({ sessionId, onFiltersChanged, detectedLocation, zeroResult
   const onReportReadyRef = useRef(onReportReady);
   onReportReadyRef.current = onReportReady;
 
+  const isNearBottomRef = useRef(true);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
+
   const scrollToBottom = useCallback(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (isNearBottomRef.current) {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
   }, []);
 
   useEffect(() => {
@@ -278,9 +284,21 @@ export function Chat({ sessionId, onFiltersChanged, detectedLocation, zeroResult
       };
       setMessages((prev) => [...prev, msg]);
 
+      // Extract intervention/drug names for auto-linking in chat text
+      const trials = (data.trials as Array<Record<string, unknown>>) || [];
+      const drugNames = trials
+        .flatMap((t) => (t.interventions as string[]) || [])
+        .filter((name) => name && name.length >= 4);
+      if (drugNames.length > 0) {
+        setKnownDrugs((prev) => {
+          const set = new Set(prev);
+          for (const d of drugNames) set.add(d);
+          return Array.from(set);
+        });
+      }
+
       // Demo mode: auto-select all trials if selectable
       if (demoModeRef.current && data.selectable) {
-        const trials = (data.trials as Array<Record<string, unknown>>) || [];
         const allIds = trials.map((t) => t.nct_id as string).filter(Boolean);
         if (allIds.length > 0) {
           setTimeout(() => {
@@ -687,13 +705,24 @@ export function Chat({ sessionId, onFiltersChanged, detectedLocation, zeroResult
       )}
 
       {/* Messages area */}
-      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
+      <div
+        ref={messagesContainerRef}
+        className="flex-1 overflow-y-auto px-4 py-4 space-y-3"
+        onScroll={() => {
+          const el = messagesContainerRef.current;
+          if (el) {
+            // "Near bottom" = within 150px of the bottom
+            isNearBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 150;
+          }
+        }}
+      >
         {messages.map((msg, idx) => (
           <div key={msg.id} className={idx === messages.length - 1 ? "message-enter" : undefined}>
             <MessageBubble
               message={msg}
               onWidgetSubmit={handleWidgetSubmit}
               onTrialSelection={handleTrialSelection}
+              knownDrugs={knownDrugs}
             />
           </div>
         ))}

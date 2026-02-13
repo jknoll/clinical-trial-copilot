@@ -11,9 +11,32 @@ interface Props {
   message: ChatMessage;
   onWidgetSubmit: (questionId: string, selections: string[], question?: string) => void;
   onTrialSelection: (trialIds: string[]) => void;
+  knownDrugs?: string[];
 }
 
-function renderMarkdown(text: string) {
+/** Auto-link known drug/intervention names to DailyMed. Only links the first
+ *  occurrence of each name and skips text already inside an <a> tag. */
+function linkifyDrugs(html: string, drugs: string[]): string {
+  if (drugs.length === 0) return html;
+  // Sort longest-first so "lenalidomide capsules" matches before "lenalidomide"
+  const sorted = [...drugs].sort((a, b) => b.length - a.length);
+  for (const drug of sorted) {
+    if (drug.length < 4) continue;
+    const escaped = drug.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    // Word-boundary match, skip if inside an existing <a>…</a>
+    const regex = new RegExp(`\\b(${escaped})\\b(?![^<]*<\\/a>)`, "gi");
+    const url = `https://dailymed.nlm.nih.gov/dailymed/search.cfm?labeltype=all&query=${encodeURIComponent(drug.toLowerCase())}`;
+    let linked = false;
+    html = html.replace(regex, (match) => {
+      if (linked) return match;
+      linked = true;
+      return `<a href="${url}" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:underline">${match}</a>`;
+    });
+  }
+  return html;
+}
+
+function renderMarkdown(text: string, knownDrugs: string[] = []) {
   // Simple markdown rendering: bold, line breaks, bullet points
   const lines = text.split("\n");
   const elements: React.ReactNode[] = [];
@@ -36,16 +59,19 @@ function renderMarkdown(text: string) {
   };
 
   const boldify = (s: string) =>
-    s
-      .replace(
-        /\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g,
-        '<a href="$2" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:underline">$1</a>'
-      )
-      .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
-      .replace(
-        /\b(NCT\d{7,8})\b/g,
-        '<a href="https://clinicaltrials.gov/study/$1" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:underline">$1</a>'
-      );
+    linkifyDrugs(
+      s
+        .replace(
+          /\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g,
+          '<a href="$2" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:underline">$1</a>'
+        )
+        .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
+        .replace(
+          /\b(NCT\d{7,8})\b/g,
+          '<a href="https://clinicaltrials.gov/study/$1" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:underline">$1</a>'
+        ),
+      knownDrugs,
+    );
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
@@ -76,7 +102,7 @@ function renderMarkdown(text: string) {
   return <div className="message-content">{elements}</div>;
 }
 
-export function MessageBubble({ message, onWidgetSubmit, onTrialSelection }: Props) {
+export function MessageBubble({ message, onWidgetSubmit, onTrialSelection, knownDrugs = [] }: Props) {
   const [selectedTrials, setSelectedTrials] = useState<Set<string>>(new Set());
 
   if (message.messageType === "status") {
@@ -190,7 +216,7 @@ export function MessageBubble({ message, onWidgetSubmit, onTrialSelection }: Pro
 
   return (
     <div className="flex justify-start">
-      <div className="chat-bubble-assistant">{renderMarkdown(message.content)}</div>
+      <div className="chat-bubble-assistant">{renderMarkdown(message.content, knownDrugs)}</div>
     </div>
   );
 }

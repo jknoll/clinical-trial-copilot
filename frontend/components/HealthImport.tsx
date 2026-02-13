@@ -301,7 +301,7 @@ export function HealthImport({ sessionId, backendUrl, onImported, externalSummar
                     <Smartphone className="w-3.5 h-3.5" />
                     Pair Device
                   </button>
-                  <div id="pair-device-qr" className="hidden mt-3 flex flex-col items-center gap-3">
+                  <div id="pair-device-qr" className="mt-3 flex flex-col items-center gap-3">
                     <QRCodeSVG value={qrData} size={160} />
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-mono font-bold tracking-wider text-slate-900">

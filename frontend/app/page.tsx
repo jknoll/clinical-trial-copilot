@@ -22,7 +22,7 @@ const EMPTY_FILTERS: FacetedFilters = {
   condition: "",
   age: null,
   sex: "",
-  statuses: null,
+  statuses: ["RECRUITING", "UNKNOWN", "NOT_YET_RECRUITING"],
   states: null,
   latitude: null,
   longitude: null,
@@ -35,7 +35,7 @@ export default function Home() {
 
   // Stats panel state
   const [showStats, setShowStats] = useState(true);
-  const [panelWidth, setPanelWidth] = useState(440);
+  const [panelWidth, setPanelWidth] = useState(520);
   const [filters, setFilters] = useState<FacetedFilters>(EMPTY_FILTERS);
   const [activeFilters, setActiveFilters] = useState<ActiveFilter[]>([]);
   const [stats, setStats] = useState<StatsData | null>(null);
@@ -260,6 +260,7 @@ export default function Home() {
                 activeCondition={filters.condition}
                 mapFlyTo={mapFlyTo}
                 travelDistance={filters.distance_miles}
+                filters={filters}
               />
             </div>
             <SplitHandle currentWidth={panelWidth} onResize={setPanelWidth} />

@@ -80,6 +80,7 @@ export function StatusBar({ data, allData }: Props) {
             type="category"
             dataKey="name"
             width={150}
+            interval={0}
             tick={(props: any) => {
               const { x, y, payload } = props;
               const entry = entries.find((e) => e.name === payload.value);

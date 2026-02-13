@@ -217,7 +217,7 @@ export function StatsMapInner({ data, userLocation, flyTo, travelDistance }: Pro
         center={[39.8283, -98.5795]}
         zoom={4}
         scrollWheelZoom={true}
-        style={{ height: "200px", width: "100%" }}
+        style={{ height: "280px", width: "100%" }}
         zoomControl={true}
         attributionControl={false}
       >

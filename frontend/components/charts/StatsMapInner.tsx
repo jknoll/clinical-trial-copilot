@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useEffect, useRef, useState } from "react";
+import { useCallback, useMemo, useEffect, useRef, useState } from "react";
 import { MapContainer, TileLayer, GeoJSON, Marker, Circle, Tooltip, useMap } from "react-leaflet";
 import L from "leaflet";
 import * as topojson from "topojson-client";
@@ -232,17 +232,20 @@ function MapFlyTo({ target }: { target: { lat: number; lon: number } | null }) {
 }
 
 // Center map on user's detected location while keeping world zoom level.
+// Uses setView (instant) on first center so tiles load for the right area
+// from the start, then flyTo for subsequent location changes.
 function MapCenterOnUser({ location, mode }: { location: { latitude: number; longitude: number } | null; mode: string }) {
   const map = useMap();
   const hasCentered = useRef(false);
   useEffect(() => {
     if (location && mode === "countries" && !hasCentered.current) {
       hasCentered.current = true;
-      map.flyTo([location.latitude, location.longitude], 2, { duration: 1.5 });
+      map.setView([location.latitude, location.longitude], 2, { animate: false });
     }
   }, [location, mode, map]);
   return null;
 }
+
 
 function createStyleFn(data: Record<string, number>, maxCount: number) {
   return (feature: Feature | undefined) => {
@@ -373,25 +376,26 @@ export function StatsMapInner({ data, stateData, userLocation, flyTo, travelDist
   const center: [number, number] = mode === "states" ? [39, -96] : [20, 0];
   const zoom = mode === "states" ? 4 : 2;
 
-  // Hide map until GeoJSON has had time to render on the canvas
-  const [mapReady, setMapReady] = useState(false);
-  useEffect(() => {
-    if (geoData) {
-      const timer = setTimeout(() => setMapReady(true), 250);
-      return () => clearTimeout(timer);
-    } else {
-      setMapReady(false);
-    }
-  }, [geoData]);
+  // Hide map until both GeoJSON and tiles have fully rendered
+  const [tilesLoaded, setTilesLoaded] = useState(false);
+  const handleTilesLoaded = useCallback(() => setTilesLoaded(true), []);
+  const mapReady = !!geoData && tilesLoaded;
+
+  // Use user location as initial center so tiles load for the right area
+  const initialCenter: [number, number] = useMemo(() => {
+    if (mode === "states") return [39, -96];
+    if (userLocation) return [userLocation.latitude, userLocation.longitude];
+    return [20, 0];
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode]); // Only compute once per mode (userLocation at mount time)
 
   return (
     <div className="rounded-lg border border-slate-200 overflow-hidden" style={{
-      opacity: mapReady ? 1 : 0,
-      transition: "opacity 0.4s ease-in",
+      visibility: mapReady ? "visible" : "hidden",
       height: "380px",
     }}>
       <MapContainer
-        center={center}
+        center={initialCenter}
         zoom={zoom}
         scrollWheelZoom={true}
         style={{ height: "380px", width: "100%" }}
@@ -402,7 +406,10 @@ export function StatsMapInner({ data, stateData, userLocation, flyTo, travelDist
       >
         <MapFlyTo target={flyTo ?? null} />
         <MapCenterOnUser location={userLocation ?? null} mode={mode} />
-        <TileLayer url="https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png" />
+        <TileLayer
+          url="https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png"
+          eventHandlers={{ load: handleTilesLoaded }}
+        />
 
         {geoData && (
           <GeoJSON key={dataKey} data={geoData} style={styleFn} onEachFeature={onEachFeature} />

@@ -228,7 +228,7 @@ export default function Home() {
       <header className="border-b border-slate-200/60 px-4 py-1.5 flex items-center gap-3 shrink-0" style={{ backgroundColor: '#f8fafc' }}>
         <div className="flex-1">
           <h1 className="text-lg font-semibold bg-gradient-to-r from-slate-900 to-slate-700 bg-clip-text text-transparent">Clinical Trial Compass</h1>
-          <p className="text-xs text-slate-500">AI-powered clinical trial guidance</p>
+          <p className="text-xs text-slate-500">571,118 Trials. One that fits. Every patient deserves a match.</p>
         </div>
         <button
           onClick={() => setShowStats((s) => !s)}
@@ -329,7 +329,7 @@ export default function Home() {
           <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden modal-enter">
             <div className="h-1 bg-gradient-to-r from-blue-600 to-indigo-600" />
             <div className="p-8 text-center">
-            <img src="/logo.png" alt="Clinical Trial Compass" className="w-24 h-24 mx-auto mb-4 object-contain mix-blend-multiply" />
+            <img src="/logo.png" alt="Clinical Trial Compass" className="w-72 h-72 mx-auto -mt-16 -mb-12 object-contain mix-blend-multiply" />
             <h2 className="text-xl font-semibold text-slate-900 mb-3">Before We Begin</h2>
             <p className="text-sm text-slate-700 mb-4 leading-relaxed">
               Clinical Trial Compass helps you find relevant clinical trials through a guided

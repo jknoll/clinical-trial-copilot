@@ -22,6 +22,16 @@ const PHASE_LABELS: Record<string, string> = {
   "NA": "N/A",
 };
 
+const PHASE_ORDER: Record<string, number> = {
+  "Early Phase 1": 0,
+  "Phase 1": 1,
+  "Phase 1/2": 2,
+  "Phase 2": 3,
+  "Phase 2/3": 4,
+  "Phase 3": 5,
+  "Phase 4": 6,
+};
+
 interface Props {
   data: Record<string, number>;
 }
@@ -32,7 +42,8 @@ export function PhaseDonut({ data }: Props) {
       name: PHASE_LABELS[phase] || phase || "Not specified",
       value: count,
     }))
-    .sort((a, b) => b.value - a.value);
+    .filter((e) => e.name !== "N/A" && e.name !== "Not specified")
+    .sort((a, b) => (PHASE_ORDER[a.name] ?? 99) - (PHASE_ORDER[b.name] ?? 99));
 
   if (!entries.length) return null;
 

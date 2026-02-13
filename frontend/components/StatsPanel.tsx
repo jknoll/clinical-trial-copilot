@@ -1,12 +1,17 @@
 "use client";
 
-import { ActiveFilter, StatsData } from "@/lib/types";
+import { useEffect, useState } from "react";
+import { ActiveFilter, FacetedFilters, StatsData, SponsorCount, EnrollmentBucket } from "@/lib/types";
+import { fetchSponsorDistribution, fetchEnrollmentDistribution } from "@/lib/statsApi";
 import { FunnelChart } from "./charts/FunnelChart";
 import { PhaseDonut } from "./charts/PhaseDonut";
 import { StatusBar } from "./charts/StatusBar";
 import { StatsMap } from "./charts/StatsMap";
 import { DiseaseBar } from "./charts/DiseaseBar";
-import { Database, X, Filter, TrendingDown, Activity } from "lucide-react";
+import { SponsorBar } from "./charts/SponsorBar";
+import { EnrollmentHistogram } from "./charts/EnrollmentHistogram";
+import { TrialTable } from "./charts/TrialTable";
+import { Database, X, Filter, TrendingDown, Activity, Building2, Users, List } from "lucide-react";
 
 interface Props {
   stats: StatsData | null;
@@ -18,9 +23,28 @@ interface Props {
   activeCondition?: string;
   mapFlyTo?: { lat: number; lon: number } | null;
   travelDistance?: number | null;
+  filters?: FacetedFilters;
 }
 
-export function StatsPanel({ stats, activeFilters, loading, error, userLocation, topConditions, activeCondition, mapFlyTo, travelDistance }: Props) {
+export function StatsPanel({ stats, activeFilters, loading, error, userLocation, topConditions, activeCondition, mapFlyTo, travelDistance, filters }: Props) {
+  const [sponsors, setSponsors] = useState<SponsorCount[]>([]);
+  const [enrollment, setEnrollment] = useState<EnrollmentBucket[]>([]);
+
+  useEffect(() => {
+    if (!filters) return;
+    let ignore = false;
+
+    fetchSponsorDistribution(filters)
+      .then((data) => { if (!ignore) setSponsors(data); })
+      .catch(() => { if (!ignore) setSponsors([]); });
+
+    fetchEnrollmentDistribution(filters)
+      .then((data) => { if (!ignore) setEnrollment(data); })
+      .catch(() => { if (!ignore) setEnrollment([]); });
+
+    return () => { ignore = true; };
+  }, [filters]);
+
   if (error) {
     return (
       <div className="h-full flex flex-col items-center justify-center p-6 text-center">
@@ -134,6 +158,13 @@ export function StatsPanel({ stats, activeFilters, loading, error, userLocation,
           </Section>
         )}
 
+        {/* Status breakdown */}
+        {Object.keys(stats.status_distribution).length > 0 && (
+          <Section title="Status Breakdown">
+            <StatusBar data={stats.status_distribution} allData={stats.all_status_distribution} />
+          </Section>
+        )}
+
         {/* Phase distribution */}
         {Object.keys(stats.phase_distribution).length > 0 && (
           <Section title="Phase Distribution">
@@ -141,10 +172,24 @@ export function StatsPanel({ stats, activeFilters, loading, error, userLocation,
           </Section>
         )}
 
-        {/* Status breakdown */}
-        {Object.keys(stats.status_distribution).length > 0 && (
-          <Section title="Status Breakdown">
-            <StatusBar data={stats.status_distribution} allData={stats.all_status_distribution} />
+        {/* Trial Table */}
+        {filters && (
+          <Section title="Matching Trials" icon={<List className="w-3.5 h-3.5" />}>
+            <TrialTable filters={filters} />
+          </Section>
+        )}
+
+        {/* Top Sponsors */}
+        {sponsors.length > 0 && (
+          <Section title="Top Sponsors" icon={<Building2 className="w-3.5 h-3.5" />}>
+            <SponsorBar data={sponsors} />
+          </Section>
+        )}
+
+        {/* Enrollment Distribution */}
+        {enrollment.length > 0 && (
+          <Section title="Enrollment Size" icon={<Users className="w-3.5 h-3.5" />}>
+            <EnrollmentHistogram data={enrollment} />
           </Section>
         )}
 

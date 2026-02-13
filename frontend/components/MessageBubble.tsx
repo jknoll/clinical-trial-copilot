@@ -3,6 +3,7 @@
 import { ChatMessage } from "@/lib/types";
 import { IntakeWidget } from "./IntakeWidget";
 import { TrialCard } from "./TrialCard";
+import { TrialCarousel } from "./TrialCarousel";
 import { Loader2, FileText } from "lucide-react";
 import { useState } from "react";
 
@@ -102,43 +103,36 @@ export function MessageBubble({ message, onWidgetSubmit, onTrialSelection }: Pro
     const trials = (message.metadata.trials as Array<Record<string, unknown>>) || [];
     const selectable = message.metadata.selectable as boolean;
 
-    const toggleTrial = (nctId: string) => {
-      setSelectedTrials((prev) => {
-        const next = new Set(prev);
-        if (next.has(nctId)) next.delete(nctId);
-        else next.add(nctId);
-        return next;
-      });
-    };
+    // Convert raw trial data to the format components expect
+    const trialData = trials.map((trial) => ({
+      nctId: trial.nct_id as string,
+      briefTitle: trial.brief_title as string,
+      phase: trial.phase as string,
+      overallStatus: trial.overall_status as string,
+      fitScore: trial.fit_score as number,
+      fitSummary: trial.fit_summary as string,
+      nearestDistanceMiles: trial.nearest_distance_miles as number | null,
+      interventions: (trial.interventions as string[]) || [],
+      sponsor: trial.sponsor as string,
+    }));
 
+    if (selectable) {
+      return (
+        <div className="max-w-[90%]">
+          <TrialCarousel trials={trialData} onSelect={onTrialSelection} />
+        </div>
+      );
+    }
+
+    // Non-selectable: show cards in a list
     return (
       <div className="max-w-[90%] space-y-3">
-        {trials.map((trial) => (
+        {trialData.map((trial) => (
           <TrialCard
-            key={trial.nct_id as string}
-            nctId={trial.nct_id as string}
-            briefTitle={trial.brief_title as string}
-            phase={trial.phase as string}
-            overallStatus={trial.overall_status as string}
-            fitScore={trial.fit_score as number}
-            fitSummary={trial.fit_summary as string}
-            nearestDistanceMiles={trial.nearest_distance_miles as number | null}
-            interventions={(trial.interventions as string[]) || []}
-            sponsor={trial.sponsor as string}
-            selectable={selectable}
-            selected={selectedTrials.has(trial.nct_id as string)}
-            onToggle={() => toggleTrial(trial.nct_id as string)}
+            key={trial.nctId}
+            {...trial}
           />
         ))}
-        {selectable && trials.length > 0 && (
-          <button
-            onClick={() => onTrialSelection(Array.from(selectedTrials))}
-            disabled={selectedTrials.size === 0}
-            className="w-full py-2.5 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          >
-            Analyze {selectedTrials.size} Selected Trial{selectedTrials.size !== 1 ? "s" : ""}
-          </button>
-        )}
       </div>
     );
   }

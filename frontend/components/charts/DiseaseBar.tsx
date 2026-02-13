@@ -49,6 +49,7 @@ export function DiseaseBar({ data, activeCondition, userCondition }: Props) {
             type="category"
             dataKey="name"
             width={140}
+            interval={0}
             tick={(props: any) => {
               const { x, y, payload } = props;
               const entry = entries.find((e) => e.name === payload.value);

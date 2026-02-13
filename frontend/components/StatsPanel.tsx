@@ -127,7 +127,7 @@ export function StatsPanel({ stats, activeFilters, loading, error, userLocation,
       .catch(() => { if (!ignore) setFunderTypes([]); });
 
     return () => { ignore = true; };
-  }, [sessionId]);
+  }, [sessionId, stats?.matched]);
 
   if (error) {
     return (

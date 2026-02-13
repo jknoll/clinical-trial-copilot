@@ -96,7 +96,7 @@ export function TrialCard({
 
         <span
           className={clsx(
-            "shrink-0 px-2.5 py-1 rounded-full text-xs font-semibold",
+            "shrink-0 px-3.5 py-1.5 rounded-full text-sm font-bold",
             fitScoreClass(fitScore)
           )}
         >

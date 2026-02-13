@@ -26,6 +26,8 @@ Built for the "Built with Opus 4.6" hackathon (Cerebral Valley x Anthropic, Feb 
 - Eligibility scoring uses ✅/❌/❓/➖ indicators, never definitive statements
 - Target 8th grade reading level for patient-facing content
 - WCAG AA accessibility for all HTML output
+- All UI labels should be Title Case (use humanizeLabel from lib/statsApi for dynamic values)
+- Drug names in chat output should link to DailyMed (`https://dailymed.nlm.nih.gov/dailymed/search.cfm?labeltype=all&query=DRUGNAME`)
 
 ## Running
 
@@ -52,6 +54,7 @@ Copy `.env.example` to `.env` and fill in:
 ## Demo / Testing
 - Type `/test` as the first chat message to run the automated Ewing Sarcoma demo flow
 - Type `/speedtest` for a faster single-message flow using multiple myeloma (medium-commonality condition)
+- Always test frontend changes in Claude in Chrome before considering them complete
 
 ## Context Overflow Protocol
 If you run out of context in the middle of executing a plan, you MUST:

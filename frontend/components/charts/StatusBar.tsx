@@ -31,10 +31,6 @@ const STATUS_COLORS: Record<string, string> = {
 const ACTIVE_STATUS_KEYS = new Set([
   "recruiting",
   "not yet recruiting",
-  "unknown status",
-  "active, not recruiting",
-  "enrolling by invitation",
-  "available",
 ]);
 
 function normalizeStatus(s: string): string {

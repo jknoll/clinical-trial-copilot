@@ -5,7 +5,7 @@ import { Chat } from "@/components/Chat";
 import { StatsPanel } from "@/components/StatsPanel";
 import { SplitHandle } from "@/components/SplitHandle";
 import { ImportSummary } from "@/components/HealthImport";
-import { BarChart3, FileText, Shield } from "lucide-react";
+import { BarChart3, FileText } from "lucide-react";
 import { FacetedFilters, ActiveFilter, StatsData } from "@/lib/types";
 import { fetchStats, reverseGeocode, forwardGeocode, fetchTopConditions, ConditionCount } from "@/lib/statsApi";
 import { requestGeolocation, UserLocation } from "@/lib/geolocation";
@@ -225,8 +225,7 @@ export default function Home() {
   return (
     <div className="flex flex-col h-screen">
       {/* Header */}
-      <header className="border-b border-slate-200/60 px-4 py-2 flex items-center gap-3 shrink-0" style={{ backgroundColor: '#f8fafc' }}>
-        <img src="/logo.png" alt="Clinical Trial Compass" className="w-[216px] h-[216px] shrink-0 object-contain mix-blend-multiply" />
+      <header className="border-b border-slate-200/60 px-4 py-1.5 flex items-center gap-3 shrink-0" style={{ backgroundColor: '#f8fafc' }}>
         <div className="flex-1">
           <h1 className="text-lg font-semibold bg-gradient-to-r from-slate-900 to-slate-700 bg-clip-text text-transparent">Clinical Trial Compass</h1>
           <p className="text-xs text-slate-500">AI-powered clinical trial guidance</p>
@@ -330,9 +329,7 @@ export default function Home() {
           <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden modal-enter">
             <div className="h-1 bg-gradient-to-r from-blue-600 to-indigo-600" />
             <div className="p-8 text-center">
-            <div className="w-14 h-14 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Shield className="w-7 h-7 text-blue-600" />
-            </div>
+            <img src="/logo.png" alt="Clinical Trial Compass" className="w-24 h-24 mx-auto mb-4 object-contain mix-blend-multiply" />
             <h2 className="text-xl font-semibold text-slate-900 mb-3">Before We Begin</h2>
             <p className="text-sm text-slate-700 mb-4 leading-relaxed">
               Clinical Trial Compass helps you find relevant clinical trials through a guided

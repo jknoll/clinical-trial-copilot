@@ -37,6 +37,10 @@ function renderMarkdown(text: string) {
 
   const boldify = (s: string) =>
     s
+      .replace(
+        /\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g,
+        '<a href="$2" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:underline">$1</a>'
+      )
       .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
       .replace(
         /\b(NCT\d{7,8})\b/g,

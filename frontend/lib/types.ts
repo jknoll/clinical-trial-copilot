@@ -82,6 +82,7 @@ export interface StatsData {
   status_distribution: Record<string, number>;
   all_status_distribution: Record<string, number>;
   geo_distribution: Record<string, number>;
+  geo_distribution_states: Record<string, number>;
   funnel: FunnelStep[];
 }
 

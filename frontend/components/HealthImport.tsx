@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Smartphone,
   Upload,
@@ -18,6 +18,10 @@ import { QRCodeSVG } from "qrcode.react";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8100";
 
+export interface LabItem { test_name: string; value: number; unit: string; }
+export interface VitalItem { type: string; value: number; unit: string; }
+export interface MedicationItem { name: string; dose: string; frequency: string; }
+
 export interface ImportSummary {
   lab_count: number;
   vital_count: number;
@@ -26,6 +30,9 @@ export interface ImportSummary {
   estimated_ecog: number | null;
   import_date: string;
   source_file: string;
+  labs?: LabItem[];
+  vitals?: VitalItem[];
+  medications?: MedicationItem[];
 }
 
 interface HealthImportProps {
@@ -36,6 +43,112 @@ interface HealthImportProps {
 }
 
 type ImportState = "idle" | "uploading" | "success" | "error";
+
+function HealthImportSuccess({ summary, onDone }: { summary: ImportSummary; onDone: () => void }) {
+  const items = useMemo(() => {
+    const result: { icon: string; label: string; detail: string }[] = [];
+
+    // Labs
+    if (summary.labs) {
+      for (const l of summary.labs) {
+        result.push({ icon: "\u{1F9EA}", label: l.test_name, detail: `${l.value} ${l.unit}` });
+      }
+    }
+
+    // Vitals
+    if (summary.vitals) {
+      for (const v of summary.vitals) {
+        result.push({ icon: "\u{1F493}", label: v.type, detail: `${v.value} ${v.unit}` });
+      }
+    }
+
+    // Medications
+    if (summary.medications) {
+      for (const m of summary.medications) {
+        const parts = [m.dose, m.frequency].filter(Boolean).join(", ");
+        result.push({ icon: "\u{1F48A}", label: m.name, detail: parts || "active" });
+      }
+    }
+
+    // Steps
+    if (summary.activity_steps_per_day != null) {
+      result.push({ icon: "\u{1F6B6}", label: "Daily steps", detail: `~${Math.round(summary.activity_steps_per_day).toLocaleString()}` });
+    }
+
+    // ECOG
+    if (summary.estimated_ecog != null) {
+      const ecogLabels: Record<number, string> = {
+        0: "Fully active",
+        1: "Moderately active",
+        2: "Ambulatory, limited activity",
+        3: "Limited self-care",
+        4: "Completely disabled",
+      };
+      result.push({ icon: "\u{1F4CA}", label: "ECOG score", detail: `${summary.estimated_ecog} \u2014 ${ecogLabels[summary.estimated_ecog] ?? ""}` });
+    }
+
+    return result;
+  }, [summary]);
+
+  const MAX_VISIBLE = 20;
+  const cappedItems = items.slice(0, MAX_VISIBLE);
+  const overflowCount = items.length - MAX_VISIBLE;
+
+  const [visibleCount, setVisibleCount] = useState(0);
+  const doneRef = useRef(false);
+  const onDoneRef = useRef(onDone);
+  onDoneRef.current = onDone;
+
+  useEffect(() => {
+    if (cappedItems.length === 0) {
+      onDoneRef.current();
+      return;
+    }
+    const interval = setInterval(() => {
+      setVisibleCount((prev) => {
+        const next = prev + 1;
+        if (next >= cappedItems.length) {
+          clearInterval(interval);
+          // Auto-collapse after 3s
+          if (!doneRef.current) {
+            doneRef.current = true;
+            setTimeout(() => onDoneRef.current(), 3000);
+          }
+        }
+        return next;
+      });
+    }, 150);
+    return () => clearInterval(interval);
+  }, [cappedItems.length]);
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center gap-2 text-sm font-medium text-green-700">
+        <CheckCircle2 className="w-4 h-4 text-green-600 shrink-0" />
+        {summary.source_file === "ios-healthkit"
+          ? "Health data received from iOS device"
+          : "Health data imported successfully"}
+      </div>
+      <div className="space-y-1 max-h-[300px] overflow-y-auto">
+        {cappedItems.slice(0, visibleCount).map((item, i) => (
+          <div
+            key={i}
+            className="flex items-center gap-2 text-xs px-2 py-1 rounded-md bg-green-50/60 animate-fadeIn"
+          >
+            <span>{item.icon}</span>
+            <span className="font-medium text-slate-700">{item.label}</span>
+            <span className="text-slate-500 ml-auto">{item.detail}</span>
+          </div>
+        ))}
+        {visibleCount >= cappedItems.length && overflowCount > 0 && (
+          <div className="text-xs text-slate-400 px-2 py-1 animate-fadeIn">
+            +{overflowCount} more items imported
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
 
 export function HealthImport({ sessionId, backendUrl, onImported, externalSummary }: HealthImportProps) {
   const [state, setState] = useState<ImportState>("idle");
@@ -49,7 +162,7 @@ export function HealthImport({ sessionId, backendUrl, onImported, externalSummar
     if (externalSummary) {
       setSummary(externalSummary);
       setState("success");
-      setExpanded(false);
+      setExpanded(true);
       onImported?.(externalSummary);
     }
   }, [externalSummary]);
@@ -86,7 +199,7 @@ export function HealthImport({ sessionId, backendUrl, onImported, externalSummar
         const data: ImportSummary = await res.json();
         setSummary(data);
         setState("success");
-        setExpanded(false);
+        setExpanded(true);
         onImported?.(data);
       } catch (err) {
         setState("error");
@@ -123,7 +236,7 @@ export function HealthImport({ sessionId, backendUrl, onImported, externalSummar
       const data: ImportSummary = await res.json();
       setSummary(data);
       setState("success");
-      setExpanded(false);
+      setExpanded(true);
       onImported?.(data);
     } catch (err) {
       setState("error");
@@ -143,7 +256,7 @@ export function HealthImport({ sessionId, backendUrl, onImported, externalSummar
       <div className="mx-4 mt-3 mb-1">
         <button
           onClick={() => setExpanded(true)}
-          className="w-full flex items-center gap-2 px-4 py-2 rounded-xl bg-green-50 border border-green-200 text-green-700 text-sm font-medium hover:bg-green-100 transition-all shadow-sm"
+          className="w-full flex items-center gap-2 px-4 py-1 rounded-xl bg-green-50 border border-green-200 text-green-700 text-xs font-medium hover:bg-green-100 transition-all shadow-sm"
         >
           <CheckCircle2 className="w-4 h-4 shrink-0" />
           <span className="truncate">
@@ -236,34 +349,7 @@ export function HealthImport({ sessionId, backendUrl, onImported, externalSummar
           )}
 
           {state === "success" && summary && (
-            <div className="space-y-3">
-              <div className="flex items-start gap-2 p-3 rounded-lg bg-green-50 border border-green-200">
-                <CheckCircle2 className="w-4 h-4 text-green-600 mt-0.5 shrink-0" />
-                <div className="text-sm text-green-800">
-                  <p className="font-medium">
-                    {summary.source_file === "ios-healthkit"
-                      ? "Health data received from iOS device"
-                      : "Health data imported successfully"}
-                  </p>
-                  <p className="mt-1 text-green-700">
-                    {summary.lab_count} lab results, {summary.vital_count} vitals, {summary.medication_count} medications
-                    {summary.activity_steps_per_day != null && (
-                      <span> | ~{Math.round(summary.activity_steps_per_day).toLocaleString()} steps/day</span>
-                    )}
-                  </p>
-                  {summary.estimated_ecog != null && (
-                    <p className="mt-0.5 text-green-600">
-                      Estimated activity level: ECOG {summary.estimated_ecog}
-                      {summary.estimated_ecog === 0 && " (fully active)"}
-                      {summary.estimated_ecog === 1 && " (moderately active)"}
-                      {summary.estimated_ecog === 2 && " (ambulatory, limited activity)"}
-                      {summary.estimated_ecog === 3 && " (limited self-care)"}
-                      {summary.estimated_ecog === 4 && " (completely disabled)"}
-                    </p>
-                  )}
-                </div>
-              </div>
-            </div>
+            <HealthImportSuccess summary={summary} onDone={() => setExpanded(false)} />
           )}
 
           {state === "idle" && (

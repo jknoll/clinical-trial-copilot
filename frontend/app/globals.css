@@ -107,6 +107,16 @@ body {
   animation: slideUp 0.25s ease-out;
 }
 
+/* Health import item fade-in */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateX(-8px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.2s ease-out both;
+}
+
 /* Shimmer loading effect */
 @keyframes shimmer {
   0% { background-position: -200% 0; }

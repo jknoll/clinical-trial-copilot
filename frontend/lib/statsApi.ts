@@ -101,7 +101,7 @@ export interface NameValue {
 }
 
 /** Convert UPPER_SNAKE_CASE or ALL_CAPS labels to Title Case. */
-function humanizeLabel(label: string): string {
+export function humanizeLabel(label: string): string {
   if (!label) return label;
   // Already looks human-readable (has lowercase letters and no underscores)
   if (/[a-z]/.test(label) && !label.includes("_")) return label;

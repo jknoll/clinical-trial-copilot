@@ -71,6 +71,7 @@ class StatsResponse(BaseModel):
     phase_distribution: dict[str, int]
     status_distribution: dict[str, int]
     geo_distribution: dict[str, int]
+    geo_distribution_states: dict[str, int]
     funnel: list[FunnelStep]
     all_status_distribution: dict[str, int]
 

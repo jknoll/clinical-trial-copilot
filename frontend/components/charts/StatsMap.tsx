@@ -16,11 +16,12 @@ const StatsMapInner = dynamic(
 
 interface Props {
   data: Record<string, number>;
+  stateData?: Record<string, number>;
   userLocation?: { latitude: number; longitude: number } | null;
   flyTo?: { lat: number; lon: number } | null;
   travelDistance?: number | null;
 }
 
-export function StatsMap({ data, userLocation, flyTo, travelDistance }: Props) {
-  return <StatsMapInner data={data} userLocation={userLocation} flyTo={flyTo} travelDistance={travelDistance} />;
+export function StatsMap({ data, stateData, userLocation, flyTo, travelDistance }: Props) {
+  return <StatsMapInner data={data} stateData={stateData} userLocation={userLocation} flyTo={flyTo} travelDistance={travelDistance} />;
 }

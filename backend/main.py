@@ -140,6 +140,9 @@ def _build_import_summary(hk: HealthKitImport, ecog: int | None) -> dict:
         "estimated_ecog": ecog,
         "import_date": hk.import_date,
         "source_file": hk.source_file,
+        "labs": [{"test_name": l.test_name, "value": l.value, "unit": l.unit} for l in hk.lab_results],
+        "vitals": [{"type": v.type, "value": v.value, "unit": v.unit} for v in hk.vitals],
+        "medications": [{"name": m.name, "dose": m.dose, "frequency": m.frequency} for m in hk.medications],
     }
 
 

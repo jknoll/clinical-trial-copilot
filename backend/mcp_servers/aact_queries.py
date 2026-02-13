@@ -198,19 +198,33 @@ async def query_faceted_stats(filters: dict[str, Any]) -> dict[str, Any]:
     status_rows = await pool.fetch(status_q, *params)
     status_distribution = {row["overall_status"]: int(row["cnt"]) for row in status_rows}
 
-    # Geographic distribution (top states, of matched)
+    # Geographic distribution (by country, global)
     geo_q = f"""
-        SELECT f2.country, f2.state, COUNT(DISTINCT s.nct_id) as cnt
+        SELECT f2.country, COUNT(DISTINCT s.nct_id) as cnt
+        FROM ctgov.studies s
+        {join_sql}
+        {"INNER JOIN" if not any("facilities" in j for j in joins) else "LEFT JOIN"}
+            ctgov.facilities f2 ON f2.nct_id = s.nct_id
+        {where_sql}
+        {"AND" if where_clauses else "WHERE"} f2.country IS NOT NULL
+        GROUP BY f2.country ORDER BY cnt DESC
+    """
+    geo_rows = await pool.fetch(geo_q, *params)
+    geo_distribution = {row["country"]: int(row["cnt"]) for row in geo_rows}
+
+    # US state-level distribution (for map drill-down)
+    state_geo_q = f"""
+        SELECT f2.state, COUNT(DISTINCT s.nct_id) as cnt
         FROM ctgov.studies s
         {join_sql}
         {"INNER JOIN" if not any("facilities" in j for j in joins) else "LEFT JOIN"}
             ctgov.facilities f2 ON f2.nct_id = s.nct_id
         {where_sql}
         {"AND" if where_clauses else "WHERE"} f2.country = 'United States' AND f2.state IS NOT NULL
-        GROUP BY f2.country, f2.state ORDER BY cnt DESC
+        GROUP BY f2.state ORDER BY cnt DESC
     """
-    geo_rows = await pool.fetch(geo_q, *params)
-    geo_distribution = {row["state"]: int(row["cnt"]) for row in geo_rows}
+    state_geo_rows = await pool.fetch(state_geo_q, *params)
+    geo_distribution_states = {row["state"]: int(row["cnt"]) for row in state_geo_rows}
 
     # Build funnel
     funnel = await _build_funnel(pool, filters)
@@ -224,6 +238,7 @@ async def query_faceted_stats(filters: dict[str, Any]) -> dict[str, Any]:
         "phase_distribution": phase_distribution,
         "status_distribution": status_distribution,
         "geo_distribution": geo_distribution,
+        "geo_distribution_states": geo_distribution_states,
         "funnel": funnel,
         "all_status_distribution": all_status,
     }

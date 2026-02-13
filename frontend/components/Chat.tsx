@@ -9,6 +9,7 @@ import { AgentActivity, LogEntry } from "./AgentActivity";
 import { HealthImport, ImportSummary } from "./HealthImport";
 
 import { FacetedFilters, ActiveFilter } from "@/lib/types";
+import { humanizeLabel } from "@/lib/statsApi";
 
 const SLASH_COMMANDS = [
   { command: "/test", label: "/test", description: "Run Ewing Sarcoma demo flow" },
@@ -298,7 +299,7 @@ export function Chat({ sessionId, onFiltersChanged, detectedLocation, zeroResult
         }
         if (data.statuses) {
           partial.statuses = data.statuses as string[];
-          display.push({ key: "statuses", label: "Status", value: (data.statuses as string[]).join(", ") });
+          display.push({ key: "statuses", label: "Status", value: (data.statuses as string[]).map(humanizeLabel).join(", ") });
         }
         if (data.age != null) {
           partial.age = data.age as number;
@@ -306,7 +307,7 @@ export function Chat({ sessionId, onFiltersChanged, detectedLocation, zeroResult
         }
         if (data.sex) {
           partial.sex = data.sex as string;
-          display.push({ key: "sex", label: "Sex", value: data.sex as string });
+          display.push({ key: "sex", label: "Sex", value: humanizeLabel(data.sex as string) });
         }
         if (data.location) {
           display.push({ key: "location", label: "Location", value: data.location as string });
@@ -314,6 +315,7 @@ export function Chat({ sessionId, onFiltersChanged, detectedLocation, zeroResult
         if (data.latitude != null && data.longitude != null) {
           partial.latitude = data.latitude as number;
           partial.longitude = data.longitude as number;
+          onLocationConfirmed?.(data.latitude as number, data.longitude as number);
         }
         if (data.distance_miles != null) {
           partial.distance_miles = data.distance_miles as number;
@@ -395,6 +397,9 @@ export function Chat({ sessionId, onFiltersChanged, detectedLocation, zeroResult
         estimated_ecog: (data.estimated_ecog as number | null) ?? null,
         import_date: (data.import_date as string) ?? "",
         source_file: (data.source_file as string) ?? "",
+        labs: (data.labs as ImportSummary["labs"]) ?? undefined,
+        vitals: (data.vitals as ImportSummary["vitals"]) ?? undefined,
+        medications: (data.medications as ImportSummary["medications"]) ?? undefined,
       };
       setDeviceImportSummary(importSummary);
       onHealthImported?.(importSummary);

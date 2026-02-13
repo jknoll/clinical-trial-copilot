@@ -345,7 +345,7 @@ export default function Home() {
             <div className="flex gap-3 mb-4">
               <a href="https://clinicaltrials.gov" target="_blank" rel="noopener noreferrer"
                 className="flex-1 flex items-center gap-2.5 p-3 rounded-lg border border-slate-200 hover:border-blue-300 hover:bg-blue-50/50 transition-colors text-left">
-                <img src="https://clinicaltrials.gov/favicon.ico" alt="" className="w-9 h-9 shrink-0" />
+                <img src="/ctg-logo.svg" alt="" className="w-9 h-9 shrink-0" />
                 <div>
                   <div className="text-xs font-semibold text-slate-800">ClinicalTrials.gov</div>
                   <div className="text-xs text-slate-500">{stats ? stats.total.toLocaleString() : "500,000+"} studies</div>
@@ -353,7 +353,7 @@ export default function Home() {
               </a>
               <a href="https://open.fda.gov" target="_blank" rel="noopener noreferrer"
                 className="flex-1 flex items-center gap-2.5 p-3 rounded-lg border border-slate-200 hover:border-blue-300 hover:bg-blue-50/50 transition-colors text-left">
-                <img src="https://open.fda.gov/img/l_openFDA.png" alt="" className="w-9 h-9 shrink-0 object-contain" />
+                <img src="/openfda-logo.svg" alt="" className="w-9 h-9 shrink-0" />
                 <div>
                   <div className="text-xs font-semibold text-slate-800">openFDA</div>
                   <div className="text-xs text-slate-500">Drug labels &amp; adverse events</div>

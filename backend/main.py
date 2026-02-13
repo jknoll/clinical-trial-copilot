@@ -174,8 +174,11 @@ async def health_import(
 
     from backend.mcp_servers.apple_health import parse_apple_health_xml
 
-    # Validate session exists (raises ValueError if not)
-    session_mgr.session_dir(session_id)
+    # Validate session exists
+    try:
+        session_mgr.session_dir(session_id)
+    except ValueError:
+        return JSONResponse({"error": f"Session {session_id} not found"}, status_code=404)
 
     if use_dummy:
         # Use the bundled dummy HealthKit export
@@ -235,8 +238,11 @@ async def health_import(
 @app.post("/api/sessions/{session_id}/health-import-json")
 async def health_import_json(session_id: str, hk: HealthKitImport):
     """Import Apple Health data from a JSON payload matching the HealthKitImport schema."""
-    # Validate session exists (raises ValueError if not)
-    session_mgr.session_dir(session_id)
+    # Validate session exists
+    try:
+        session_mgr.session_dir(session_id)
+    except ValueError:
+        return JSONResponse({"error": f"Session {session_id} not found"}, status_code=404)
 
     if not hk.import_date:
         hk.import_date = datetime.now(timezone.utc).isoformat()

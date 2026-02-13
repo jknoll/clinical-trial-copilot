@@ -68,13 +68,9 @@ async def close_pool() -> None:
 
 
 async def get_total_count() -> int:
-    """Count only active (non-completed/terminated/withdrawn) trials."""
+    """Count all trials in the database."""
     pool = await get_pool()
-    placeholders = ", ".join(f"${i+1}" for i in range(len(ACTIVE_STATUSES)))
-    row = await pool.fetchval(
-        f"SELECT COUNT(*) FROM ctgov.studies WHERE LOWER(overall_status) IN ({placeholders})",
-        *ACTIVE_STATUSES,
-    )
+    row = await pool.fetchval("SELECT COUNT(*) FROM ctgov.studies")
     return int(row)
 
 
@@ -444,7 +440,9 @@ async def query_matched_trials(filters: dict[str, Any], page: int = 1, per_page:
     # Get page of results
     offset = (page - 1) * per_page
     q = f"""
-        SELECT DISTINCT s.nct_id, s.brief_title, s.phase, s.overall_status, s.enrollment
+        SELECT DISTINCT s.nct_id, s.brief_title,
+               (SELECT string_agg(DISTINCT con.name, '; ')
+                FROM ctgov.conditions con WHERE con.nct_id = s.nct_id) AS condition_name
         FROM ctgov.studies s
         {join_sql}
         {where_sql}
@@ -458,9 +456,7 @@ async def query_matched_trials(filters: dict[str, Any], page: int = 1, per_page:
         {
             "nct_id": row["nct_id"],
             "brief_title": row["brief_title"],
-            "phase": row["phase"] or "N/A",
-            "overall_status": row["overall_status"],
-            "enrollment": row["enrollment"],
+            "condition": row["condition_name"] or "",
         }
         for row in rows
     ]

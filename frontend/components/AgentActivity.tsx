@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import React, { useEffect, useRef } from "react";
 import { CheckCircle2, ClipboardList, Search, GitCompare, CheckSquare, FileText, MessageCircle } from "lucide-react";
 
 const PHASES = [
@@ -18,6 +18,25 @@ interface Props {
   isProcessing: boolean;
   activityLog?: Record<string, string[]>;
   isComplete?: boolean;
+}
+
+function renderLogMessage(message: string): React.ReactNode {
+  // Linkify FDA drug lookups: "Looking up FDA data for {drug}..."
+  const fdaMatch = message.match(/^Looking up FDA data for (.+?)\.\.\.$/);
+  if (fdaMatch) {
+    const drug = fdaMatch[1];
+    const url = `https://dailymed.nlm.nih.gov/dailymed/search.cfm?labeltype=all&query=${encodeURIComponent(drug)}`;
+    return (
+      <>
+        Looking up FDA data for{" "}
+        <a href={url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+          {drug}
+        </a>
+        ...
+      </>
+    );
+  }
+  return message;
 }
 
 export function AgentActivity({ currentPhase, activity, isProcessing, activityLog, isComplete }: Props) {
@@ -107,7 +126,7 @@ export function AgentActivity({ currentPhase, activity, isProcessing, activityLo
                   <span className="inline-block w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse shrink-0" />
                 )}
                 <span className={`truncate ${isLatest ? "font-medium" : ""}`}>
-                  {entry.message}
+                  {renderLogMessage(entry.message)}
                 </span>
               </div>
             );

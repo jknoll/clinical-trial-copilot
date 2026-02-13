@@ -60,9 +60,7 @@ export function TrialTable({ filters }: Props) {
           <tr className="bg-slate-50 text-xs font-medium text-slate-500">
             <th className="text-left px-3 py-2">NCT ID</th>
             <th className="text-left px-3 py-2">Brief Title</th>
-            <th className="text-left px-3 py-2">Phase</th>
-            <th className="text-left px-3 py-2">Status</th>
-            <th className="text-right px-3 py-2">Enroll</th>
+            <th className="text-left px-3 py-2">Condition</th>
           </tr>
         </thead>
         <tbody className="text-xs text-slate-700 divide-y divide-slate-100">
@@ -81,10 +79,8 @@ export function TrialTable({ filters }: Props) {
               <td className="px-3 py-2 max-w-[180px]">
                 <span className="line-clamp-1">{t.brief_title}</span>
               </td>
-              <td className="px-3 py-2 whitespace-nowrap">{t.phase || "N/A"}</td>
-              <td className="px-3 py-2 whitespace-nowrap">{t.overall_status}</td>
-              <td className="px-3 py-2 text-right whitespace-nowrap">
-                {t.enrollment != null ? t.enrollment.toLocaleString() : "\u2014"}
+              <td className="px-3 py-2 max-w-[140px]">
+                <span className="line-clamp-1">{t.condition || "\u2014"}</span>
               </td>
             </tr>
           ))}
@@ -102,7 +98,7 @@ export function TrialTable({ filters }: Props) {
             Previous
           </button>
           <span className="text-xs text-slate-400">
-            Page {data.page} of {data.total_pages}
+            Page {data.page} of {data.total_pages.toLocaleString()}
           </span>
           <button
             onClick={() => setPage((p) => Math.min(data.total_pages, p + 1))}

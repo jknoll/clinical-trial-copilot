@@ -334,12 +334,32 @@ export default function Home() {
             </div>
             <h2 className="text-xl font-semibold text-slate-900 mb-3">Before We Begin</h2>
             <p className="text-sm text-slate-700 mb-4 leading-relaxed">
-              Clinical Trial Compass helps you find relevant clinical trials from the massive
-              ClinicalTrials.gov database of 500,000+ studies. Through a guided conversation,
-              we&apos;ll narrow down trials that match your condition, location, and preferences
-              — turning an overwhelming search into a manageable shortlist you can discuss with
-              your doctor.
+              Clinical Trial Compass helps you find relevant clinical trials through a guided
+              conversation. We&apos;ll narrow down trials that match your condition, location,
+              and preferences — turning an overwhelming search into a manageable shortlist you
+              can discuss with your doctor.
             </p>
+
+            {/* Data sources */}
+            <div className="flex gap-3 mb-4">
+              <a href="https://clinicaltrials.gov" target="_blank" rel="noopener noreferrer"
+                className="flex-1 flex items-center gap-2.5 p-3 rounded-lg border border-slate-200 hover:border-blue-300 hover:bg-blue-50/50 transition-colors text-left">
+                <img src="https://clinicaltrials.gov/favicon.ico" alt="" className="w-6 h-6 shrink-0" />
+                <div>
+                  <div className="text-xs font-semibold text-slate-800">ClinicalTrials.gov</div>
+                  <div className="text-xs text-slate-500">{stats ? stats.total.toLocaleString() : "500,000+"} studies</div>
+                </div>
+              </a>
+              <a href="https://open.fda.gov" target="_blank" rel="noopener noreferrer"
+                className="flex-1 flex items-center gap-2.5 p-3 rounded-lg border border-slate-200 hover:border-blue-300 hover:bg-blue-50/50 transition-colors text-left">
+                <img src="https://open.fda.gov/img/l_openFDA.png" alt="" className="w-6 h-6 shrink-0 object-contain" />
+                <div>
+                  <div className="text-xs font-semibold text-slate-800">openFDA</div>
+                  <div className="text-xs text-slate-500">Drug labels &amp; adverse events</div>
+                </div>
+              </a>
+            </div>
+
             <p className="text-sm text-slate-600 mb-6 leading-relaxed">
               This is an <strong>AI-powered research tool</strong> that helps you explore clinical trial options.
               It does <strong>not</strong> provide medical advice, diagnoses, or treatment recommendations.

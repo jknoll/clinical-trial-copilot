@@ -92,9 +92,7 @@ export interface ActiveFilter {
 export interface MatchedTrialRow {
   nct_id: string;
   brief_title: string;
-  phase: string;
-  overall_status: string;
-  enrollment: number | null;
+  condition: string;
 }
 
 export interface PaginatedTrials {

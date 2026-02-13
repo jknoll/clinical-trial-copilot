@@ -16,6 +16,20 @@ router = APIRouter()
 # Store active orchestrators per session
 _orchestrators: dict[str, AgentOrchestrator] = {}
 
+# Store active WebSocket connections per session for push notifications
+_active_connections: dict[str, WebSocket] = {}
+
+
+async def notify_session(session_id: str, message: dict) -> None:
+    """Send a JSON message to the active WebSocket for *session_id* (if any)."""
+    ws = _active_connections.get(session_id)
+    if ws is None:
+        return
+    try:
+        await ws.send_json(message)
+    except Exception:
+        logger.debug("Failed to push notification to session %s", session_id)
+
 
 def _get_orchestrator(session_id: str, session_mgr: SessionManager) -> AgentOrchestrator:
     if session_id not in _orchestrators:
@@ -37,6 +51,7 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
         return
 
     orchestrator = _get_orchestrator(session_id, session_mgr)
+    _active_connections[session_id] = websocket
 
     # Send welcome message only for new sessions (no conversation history)
     if not orchestrator.conversation_history:
@@ -109,3 +124,5 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
         except Exception:
             pass
         # Keep orchestrator alive so session can be resumed
+    finally:
+        _active_connections.pop(session_id, None)

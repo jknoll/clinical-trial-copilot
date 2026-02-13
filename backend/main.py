@@ -14,6 +14,7 @@ from fastapi.staticfiles import StaticFiles
 from backend.config import settings
 from backend.models.patient import HealthKitImport
 from backend.session import SessionManager
+from backend.websocket import notify_session
 
 logger = logging.getLogger(__name__)
 
@@ -193,6 +194,7 @@ async def health_import(
             hk.import_date = datetime.now(timezone.utc).isoformat()
 
         summary = _merge_health_kit(session_id, hk)
+        await notify_session(session_id, {"type": "health_imported", **summary})
         return summary
 
     # File upload path
@@ -221,6 +223,7 @@ async def health_import(
             hk.import_date = datetime.now(timezone.utc).isoformat()
 
         summary = _merge_health_kit(session_id, hk)
+        await notify_session(session_id, {"type": "health_imported", **summary})
         return summary
     finally:
         tmp_path.unlink(missing_ok=True)
@@ -236,6 +239,7 @@ async def health_import_json(session_id: str, hk: HealthKitImport):
         hk.import_date = datetime.now(timezone.utc).isoformat()
 
     summary = _merge_health_kit(session_id, hk)
+    await notify_session(session_id, {"type": "health_imported", **summary})
     return summary
 
 

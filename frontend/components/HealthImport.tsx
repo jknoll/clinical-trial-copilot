@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Smartphone,
   Upload,
@@ -32,17 +32,27 @@ interface HealthImportProps {
   sessionId: string;
   backendUrl?: string;
   onImported?: (summary: ImportSummary) => void;
+  externalSummary?: ImportSummary | null;
 }
 
 type ImportState = "idle" | "uploading" | "success" | "error";
 
-export function HealthImport({ sessionId, backendUrl, onImported }: HealthImportProps) {
+export function HealthImport({ sessionId, backendUrl, onImported, externalSummary }: HealthImportProps) {
   const [state, setState] = useState<ImportState>("idle");
   const [expanded, setExpanded] = useState(true);
   const [summary, setSummary] = useState<ImportSummary | null>(null);
   const [errorMessage, setErrorMessage] = useState("");
   const [copied, setCopied] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (externalSummary) {
+      setSummary(externalSummary);
+      setState("success");
+      setExpanded(false);
+      onImported?.(externalSummary);
+    }
+  }, [externalSummary]);
 
   const handleCopySession = async () => {
     try {
@@ -137,7 +147,7 @@ export function HealthImport({ sessionId, backendUrl, onImported }: HealthImport
         >
           <CheckCircle2 className="w-4 h-4 shrink-0" />
           <span className="truncate">
-            Imported: {summary?.lab_count ?? 0} labs, {summary?.vital_count ?? 0} vitals, {summary?.medication_count ?? 0} medications
+            {summary?.source_file === "ios-healthkit" ? "iOS: " : "Imported: "}{summary?.lab_count ?? 0} labs, {summary?.vital_count ?? 0} vitals, {summary?.medication_count ?? 0} medications
             {summary?.estimated_ecog != null && ` | ECOG ${summary.estimated_ecog}`}
           </span>
           <ChevronDown className="w-4 h-4 ml-auto shrink-0" />
@@ -226,7 +236,11 @@ export function HealthImport({ sessionId, backendUrl, onImported }: HealthImport
               <div className="flex items-start gap-2 p-3 rounded-lg bg-green-50 border border-green-200">
                 <CheckCircle2 className="w-4 h-4 text-green-600 mt-0.5 shrink-0" />
                 <div className="text-sm text-green-800">
-                  <p className="font-medium">Health data imported successfully</p>
+                  <p className="font-medium">
+                    {summary.source_file === "ios-healthkit"
+                      ? "Health data received from iOS device"
+                      : "Health data imported successfully"}
+                  </p>
                   <p className="mt-1 text-green-700">
                     {summary.lab_count} lab results, {summary.vital_count} vitals, {summary.medication_count} medications
                     {summary.activity_steps_per_day != null && (

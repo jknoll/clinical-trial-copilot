@@ -98,6 +98,7 @@ export function Chat({ sessionId, onFiltersChanged, detectedLocation, zeroResult
   const pendingIdRef = useRef<string>("");
   const demoModeRef = useRef(false);
   const [currentPhase, setCurrentPhase] = useState("");
+  const [deviceImportSummary, setDeviceImportSummary] = useState<ImportSummary | null>(null);
   const [currentActivity, setCurrentActivity] = useState("");
   const [activityLog, setActivityLog] = useState<Record<string, string[]>>({});
   const [isProcessingComplete, setIsProcessingComplete] = useState(false);
@@ -323,6 +324,18 @@ export function Chat({ sessionId, onFiltersChanged, detectedLocation, zeroResult
         const pdfUrl = rawPdfUrl.startsWith("/") ? `${API_URL}${rawPdfUrl}` : rawPdfUrl;
         onReportReadyRef.current(htmlUrl, pdfUrl);
       }
+    } else if (type === "health_imported") {
+      const importSummary: ImportSummary = {
+        lab_count: (data.lab_count as number) ?? 0,
+        vital_count: (data.vital_count as number) ?? 0,
+        medication_count: (data.medication_count as number) ?? 0,
+        activity_steps_per_day: (data.activity_steps_per_day as number | null) ?? null,
+        estimated_ecog: (data.estimated_ecog as number | null) ?? null,
+        import_date: (data.import_date as string) ?? "",
+        source_file: (data.source_file as string) ?? "",
+      };
+      setDeviceImportSummary(importSummary);
+      onHealthImported?.(importSummary);
     } else if (type === "done") {
       setIsTyping(false);
       setIsServerProcessing(false);
@@ -341,7 +354,7 @@ export function Chat({ sessionId, onFiltersChanged, detectedLocation, zeroResult
       };
       setMessages((prev) => [...prev, msg]);
     }
-  }, []);
+  }, [onHealthImported]);
 
   useEffect(() => {
     // Clear any stale messages from previous connections
@@ -560,7 +573,7 @@ export function Chat({ sessionId, onFiltersChanged, detectedLocation, zeroResult
     <div className="flex flex-col h-full bg-white/40 backdrop-blur-sm">
       {/* Health import card — shown during intake phase; component handles its own collapse/badge */}
       {currentPhase === "intake" && (
-        <HealthImport sessionId={sessionId} backendUrl={backendUrl} onImported={onHealthImported} />
+        <HealthImport sessionId={sessionId} backendUrl={backendUrl} onImported={onHealthImported} externalSummary={deviceImportSummary} />
       )}
 
       {/* Messages area */}

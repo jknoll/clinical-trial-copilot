@@ -46,7 +46,7 @@ export function AgentActivity({ currentPhase, activity, isProcessing, activityLo
   }
 
   // Show the most recent entries (tail)
-  const visibleLogs = allLogs.slice(-6);
+  const visibleLogs = allLogs.slice(-10);
 
   return (
     <div
@@ -92,8 +92,8 @@ export function AgentActivity({ currentPhase, activity, isProcessing, activityLo
       </div>
 
       {/* Scrolling activity log */}
-      {visibleLogs.length > 0 && isProcessing && (
-        <div className="max-w-3xl mx-auto mt-1.5 max-h-16 overflow-y-auto activity-log">
+      {visibleLogs.length > 0 && (
+        <div className="max-w-3xl mx-auto mt-1.5 max-h-24 overflow-y-auto activity-log">
           {visibleLogs.map((entry, i) => {
             const isLatest = i === visibleLogs.length - 1;
             return (
@@ -103,7 +103,7 @@ export function AgentActivity({ currentPhase, activity, isProcessing, activityLo
                   isLatest ? "text-slate-600" : "text-slate-400"
                 }`}
               >
-                {isLatest && (
+                {isLatest && isProcessing && (
                   <span className="inline-block w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse shrink-0" />
                 )}
                 <span className={`truncate ${isLatest ? "font-medium" : ""}`}>

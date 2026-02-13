@@ -980,6 +980,40 @@ class AgentOrchestrator:
                         "phase": "matching",
                         "message": "Reviewing imported health data...",
                     }
+                elif tu["name"] == "save_patient_profile":
+                    yield {
+                        "type": "status",
+                        "phase": "intake",
+                        "message": "Compiling your patient profile...",
+                    }
+                elif tu["name"] == "update_session_phase":
+                    phase_name = tu["input"].get("phase", "next")
+                    yield {
+                        "type": "status",
+                        "phase": phase_name,
+                        "message": f"Transitioning to {phase_name} phase...",
+                    }
+                elif tu["name"] == "emit_widget":
+                    yield {
+                        "type": "status",
+                        "phase": "intake",
+                        "message": "Preparing question...",
+                    }
+                elif tu["name"] == "emit_trial_cards":
+                    trial_count = len(tu["input"].get("trials", []))
+                    yield {
+                        "type": "status",
+                        "phase": "selection",
+                        "message": f"Presenting {trial_count} trial cards...",
+                    }
+                elif tu["name"] == "emit_status":
+                    pass  # emit_status handles itself
+                else:
+                    yield {
+                        "type": "status",
+                        "phase": state.phase.value,
+                        "message": f"Running {tu['name']}...",
+                    }
 
                 result = await self._execute_tool(tu["name"], tu["input"])
                 tool_results.append({

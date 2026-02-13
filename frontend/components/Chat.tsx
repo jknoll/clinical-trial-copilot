@@ -10,6 +10,11 @@ import { HealthImport, ImportSummary } from "./HealthImport";
 
 import { FacetedFilters, ActiveFilter } from "@/lib/types";
 
+const SLASH_COMMANDS = [
+  { command: "/test", label: "/test", description: "Run Ewing Sarcoma demo flow" },
+  { command: "/speedtest", label: "/speedtest", description: "Run Multiple Myeloma speed test" },
+];
+
 interface DetectedLocation {
   display: string;
   latitude: number;
@@ -97,11 +102,16 @@ export function Chat({ sessionId, onFiltersChanged, detectedLocation, zeroResult
   const pendingTextRef = useRef<string>("");
   const pendingIdRef = useRef<string>("");
   const demoModeRef = useRef(false);
+  const demoContinuationSentRef = useRef(false);
+  const demoFallbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [currentPhase, setCurrentPhase] = useState("");
   const [deviceImportSummary, setDeviceImportSummary] = useState<ImportSummary | null>(null);
   const [currentActivity, setCurrentActivity] = useState("");
   const [activityLog, setActivityLog] = useState<Record<string, LogEntry[]>>({});
   const [isProcessingComplete, setIsProcessingComplete] = useState(false);
+  const [showSlashMenu, setShowSlashMenu] = useState(false);
+  const [slashMenuIndex, setSlashMenuIndex] = useState(0);
+  const [filteredCommands, setFilteredCommands] = useState(SLASH_COMMANDS);
   const handleWidgetSubmitRef = useRef<((questionId: string, selections: string[], question?: string) => void) | null>(null);
   const handleTrialSelectionRef = useRef<((trialIds: string[]) => void) | null>(null);
   const onReportReadyRef = useRef(onReportReady);
@@ -120,6 +130,13 @@ export function Chat({ sessionId, onFiltersChanged, detectedLocation, zeroResult
 
     if (type === "text") {
       setIsTyping(true);
+      // Reset demo continuation guard — new response is streaming in
+      demoContinuationSentRef.current = false;
+      // Clear any pending fallback timer from a previous text_done
+      if (demoFallbackTimerRef.current) {
+        clearTimeout(demoFallbackTimerRef.current);
+        demoFallbackTimerRef.current = null;
+      }
       // Set intake phase on first assistant text (welcome message)
       setCurrentPhase((prev) => prev || "intake");
       const content = data.content as string;
@@ -156,9 +173,18 @@ export function Chat({ sessionId, onFiltersChanged, detectedLocation, zeroResult
       setTimeout(() => inputRef.current?.focus(), 50);
 
       if (demoModeRef.current) {
+        // Reset continuation guard — new text_done means a new response arrived
+        demoContinuationSentRef.current = false;
+        // Clear any previous fallback timer
+        if (demoFallbackTimerRef.current) {
+          clearTimeout(demoFallbackTimerRef.current);
+          demoFallbackTimerRef.current = null;
+        }
+
         // Wait then check if we need to send a text answer.
         // Skip if a widget/trial_cards arrives in the meantime (they handle themselves).
         setTimeout(() => {
+          if (!demoModeRef.current || demoContinuationSentRef.current) return;
           setMessages((prev) => {
             const lastMsg = prev[prev.length - 1];
             // Skip if a widget, trial_cards, or user message appeared since text_done
@@ -169,6 +195,7 @@ export function Chat({ sessionId, onFiltersChanged, detectedLocation, zeroResult
             if (lastAssistant && lastAssistant.content.includes("?")) {
               const answer = findDemoAnswer(lastAssistant.content);
               if (answer) {
+                demoContinuationSentRef.current = true;
                 const userMsg: ChatMessage = {
                   id: `user_${Date.now()}`,
                   role: "user",
@@ -185,6 +212,32 @@ export function Chat({ sessionId, onFiltersChanged, detectedLocation, zeroResult
             return prev;
           });
         }, 1500);
+
+        // Fallback: if no question mark was found and no widget arrived,
+        // send "Please continue" after 2500ms to prevent stalling
+        demoFallbackTimerRef.current = setTimeout(() => {
+          demoFallbackTimerRef.current = null;
+          if (!demoModeRef.current || demoContinuationSentRef.current) return;
+          setMessages((prev) => {
+            const lastMsg = prev[prev.length - 1];
+            // Skip if a widget, trial_cards, or user message appeared
+            if (lastMsg && (lastMsg.messageType === "widget" || lastMsg.messageType === "trial_cards" || lastMsg.role === "user")) {
+              return prev;
+            }
+            demoContinuationSentRef.current = true;
+            const userMsg: ChatMessage = {
+              id: `user_${Date.now()}`,
+              role: "user",
+              content: "Please continue",
+              messageType: "text",
+              timestamp: Date.now(),
+            };
+            wsRef.current?.send({ type: "message", content: "Please continue" });
+            setIsTyping(true);
+            setIsServerProcessing(true);
+            return [...prev, userMsg];
+          });
+        }, 2500);
       }
     } else if (type === "widget") {
       setIsTyping(false);
@@ -361,6 +414,32 @@ export function Chat({ sessionId, onFiltersChanged, detectedLocation, zeroResult
       });
       // Refocus input so user can immediately type
       setTimeout(() => inputRef.current?.focus(), 50);
+
+      // Demo mode: auto-send continuation if the agent stopped but report isn't ready yet.
+      // This is the most critical safeguard — catches any case where the agent stops unexpectedly.
+      if (demoModeRef.current) {
+        // Clear any pending text_done fallback timer to avoid double-sends
+        if (demoFallbackTimerRef.current) {
+          clearTimeout(demoFallbackTimerRef.current);
+          demoFallbackTimerRef.current = null;
+        }
+        setTimeout(() => {
+          if (!demoModeRef.current || demoContinuationSentRef.current) return;
+          demoContinuationSentRef.current = true;
+          const continueMsg = "Please continue with the next step";
+          const userMsg: ChatMessage = {
+            id: `user_${Date.now()}`,
+            role: "user",
+            content: continueMsg,
+            messageType: "text",
+            timestamp: Date.now(),
+          };
+          setMessages((prev) => [...prev, userMsg]);
+          setIsTyping(true);
+          setIsServerProcessing(true);
+          wsRef.current?.send({ type: "message", content: continueMsg });
+        }, 1500);
+      }
     } else if (type === "error") {
       setIsTyping(false);
       setIsServerProcessing(false);
@@ -635,14 +714,87 @@ export function Chat({ sessionId, onFiltersChanged, detectedLocation, zeroResult
       />
 
       {/* Input area */}
-      <div className="border-t border-slate-200/60 bg-white/80 backdrop-blur-lg px-4 py-3 shrink-0">
+      <div className="border-t border-slate-200/60 bg-white/80 backdrop-blur-lg px-4 py-3 shrink-0 relative">
+        {/* Slash command autocomplete popup */}
+        {showSlashMenu && filteredCommands.length > 0 && (
+          <div className="absolute bottom-full left-0 right-0 mb-1 px-4">
+            <div className="max-w-3xl mx-auto">
+              <div className="rounded-xl border border-slate-200 bg-white shadow-lg overflow-hidden">
+                {filteredCommands.map((cmd, i) => (
+                  <button
+                    key={cmd.command}
+                    className={`w-full text-left px-4 py-2.5 flex items-center gap-3 transition-colors ${
+                      i === slashMenuIndex ? "bg-blue-50" : "hover:bg-slate-50"
+                    }`}
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      setInput(cmd.command);
+                      setShowSlashMenu(false);
+                    }}
+                    onMouseEnter={() => setSlashMenuIndex(i)}
+                  >
+                    <span className={`font-mono text-sm font-medium ${i === slashMenuIndex ? "text-blue-700" : "text-slate-700"}`}>
+                      {cmd.label}
+                    </span>
+                    <span className="text-xs text-slate-500">{cmd.description}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
         <div className="flex items-center gap-2 max-w-3xl mx-auto">
           <input
             ref={inputRef}
             type="text"
             value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && sendMessage()}
+            onChange={(e) => {
+              const val = e.target.value;
+              setInput(val);
+              if (val.startsWith("/")) {
+                const typed = val.toLowerCase();
+                const matched = SLASH_COMMANDS.filter((cmd) =>
+                  cmd.command.startsWith(typed)
+                );
+                setFilteredCommands(matched);
+                setSlashMenuIndex(0);
+                setShowSlashMenu(matched.length > 0);
+              } else {
+                setShowSlashMenu(false);
+              }
+            }}
+            onKeyDown={(e) => {
+              if (showSlashMenu && filteredCommands.length > 0) {
+                if (e.key === "ArrowDown") {
+                  e.preventDefault();
+                  setSlashMenuIndex((prev) =>
+                    prev < filteredCommands.length - 1 ? prev + 1 : 0
+                  );
+                  return;
+                }
+                if (e.key === "ArrowUp") {
+                  e.preventDefault();
+                  setSlashMenuIndex((prev) =>
+                    prev > 0 ? prev - 1 : filteredCommands.length - 1
+                  );
+                  return;
+                }
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  setInput(filteredCommands[slashMenuIndex].command);
+                  setShowSlashMenu(false);
+                  return;
+                }
+                if (e.key === "Escape") {
+                  e.preventDefault();
+                  setShowSlashMenu(false);
+                  return;
+                }
+              }
+              if (e.key === "Enter" && !e.shiftKey) {
+                sendMessage();
+              }
+            }}
             placeholder="Type your message..."
             className="flex-1 rounded-xl border border-slate-300 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             disabled={isServerProcessing}

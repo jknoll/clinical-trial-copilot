@@ -1233,6 +1233,32 @@ class AgentOrchestrator:
                 while not self._heartbeat_queue.empty():
                     yield self._heartbeat_queue.get_nowait()
                 self._tools_executed += 1
+
+                # Emit location summary for get_trial_locations
+                if tu["name"] == "get_trial_locations" and self._last_locations:
+                    locs = self._last_locations
+                    # Build a short summary of locations found
+                    loc_summaries = []
+                    for loc in locs[:5]:  # Show up to 5 locations
+                        city = loc.get("city", "")
+                        loc_state = loc.get("state", "")
+                        facility = loc.get("facility", "") or loc.get("name", "")
+                        if facility and city:
+                            loc_summaries.append(f"{facility}, {city}")
+                        elif city and loc_state:
+                            loc_summaries.append(f"{city}, {loc_state}")
+                        elif facility:
+                            loc_summaries.append(facility)
+                    if loc_summaries:
+                        nct = tu["input"].get("nct_id", "")
+                        summary_text = "; ".join(loc_summaries)
+                        more = f" (+{len(locs) - 5} more)" if len(locs) > 5 else ""
+                        yield {
+                            "type": "status",
+                            "phase": "matching",
+                            "message": f"Found {len(locs)} sites for {nct}: {summary_text}{more}",
+                        }
+
                 tool_results.append({
                     "type": "tool_result",
                     "tool_use_id": tu["id"],

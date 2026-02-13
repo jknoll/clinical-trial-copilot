@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import shutil
 
 logger = logging.getLogger(__name__)
 
@@ -19,28 +18,36 @@ def check_playwright_browsers() -> bool:
     Returns True if available, False otherwise.  Logs a warning when the
     browser cannot be found so operators know to run
     ``playwright install chromium``.
+
+    This uses a filesystem-based check instead of the Playwright sync API
+    so it works safely inside an asyncio event loop (e.g. FastAPI).
     """
     try:
-        from playwright.sync_api import sync_playwright
+        import pathlib
+        import subprocess
 
-        with sync_playwright() as pw:
-            # chromium.executable_path is the quickest way to check without
-            # actually launching a browser process.
-            executable = pw.chromium.executable_path
-            if not executable or not shutil.which(executable):
-                # executable_path may return a path even if the binary is
-                # missing; fall back to a filesystem check.
-                import pathlib
+        # Ask the playwright CLI for the browser path — this works inside
+        # an async loop unlike sync_playwright().
+        result = subprocess.run(
+            ["python3", "-m", "playwright", "install", "--dry-run"],
+            capture_output=True, text=True, timeout=10,
+        )
+        # Fallback: check the default Chromium install location directly
+        cache_dir = pathlib.Path.home() / ".cache" / "ms-playwright"
+        if cache_dir.exists():
+            chrome_bins = list(cache_dir.glob("chromium-*/chrome-linux*/chrome")) + \
+                          list(cache_dir.glob("chromium-*/chrome-*/chrome")) + \
+                          list(cache_dir.glob("chromium-*/chrome-*/chrome.exe"))
+            if chrome_bins and any(b.exists() for b in chrome_bins):
+                logger.info("Playwright Chromium browser is available for PDF generation.")
+                return True
 
-                if not executable or not pathlib.Path(executable).exists():
-                    logger.warning(
-                        "Playwright Chromium browser is NOT installed. "
-                        "PDF report generation will be unavailable. "
-                        "Run 'playwright install chromium' to fix this."
-                    )
-                    return False
-        logger.info("Playwright Chromium browser is available for PDF generation.")
-        return True
+        logger.warning(
+            "Playwright Chromium browser is NOT installed. "
+            "PDF report generation will be unavailable. "
+            "Run 'playwright install chromium' to fix this."
+        )
+        return False
     except Exception as exc:
         logger.warning(
             "Could not verify Playwright browser installation (%s: %s). "

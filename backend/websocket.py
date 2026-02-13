@@ -43,7 +43,7 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
         await websocket.send_json({
             "type": "text",
             "content": (
-                "Welcome to the Clinical Trial Navigator!\n\n"
+                "Welcome to the Clinical Trial Compass!\n\n"
                 "What condition are you exploring clinical trials for? "
                 "Please include the specific diagnosis, stage, or subtype if you know it."
             ),

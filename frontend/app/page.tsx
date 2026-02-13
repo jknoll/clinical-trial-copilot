@@ -5,7 +5,6 @@ import { Chat } from "@/components/Chat";
 import { StatsPanel } from "@/components/StatsPanel";
 import { SplitHandle } from "@/components/SplitHandle";
 import { ImportSummary } from "@/components/HealthImport";
-import { SessionQR } from "@/components/SessionQR";
 import { BarChart3, FileText, Shield } from "lucide-react";
 import { FacetedFilters, ActiveFilter, StatsData } from "@/lib/types";
 import { fetchStats, reverseGeocode, forwardGeocode, fetchTopConditions, ConditionCount } from "@/lib/statsApi";
@@ -226,15 +225,12 @@ export default function Home() {
   return (
     <div className="flex flex-col h-screen">
       {/* Header */}
-      <header className="bg-white/80 backdrop-blur-lg border-b border-slate-200/60 px-4 py-3 flex items-center gap-3 shrink-0">
-        <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-lg flex items-center justify-center shadow-sm">
-          <span className="text-white font-bold text-sm">CT</span>
-        </div>
+      <header className="border-b border-slate-200/60 px-4 py-2 flex items-center gap-3 shrink-0" style={{ backgroundColor: '#f8fafc' }}>
+        <img src="/logo.png" alt="Clinical Trial Compass" className="w-[108px] h-[108px] shrink-0 object-contain mix-blend-multiply" />
         <div className="flex-1">
-          <h1 className="text-lg font-semibold bg-gradient-to-r from-slate-900 to-slate-700 bg-clip-text text-transparent">Clinical Trial Navigator</h1>
+          <h1 className="text-lg font-semibold bg-gradient-to-r from-slate-900 to-slate-700 bg-clip-text text-transparent">Clinical Trial Compass</h1>
           <p className="text-xs text-slate-500">AI-powered clinical trial guidance</p>
         </div>
-        {sessionId && <SessionQR sessionId={sessionId} backendUrl={API_URL} />}
         <button
           onClick={() => setShowStats((s) => !s)}
           className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
@@ -297,6 +293,7 @@ export default function Home() {
               onReportReady={(html, pdf) => setReportUrls({ html, pdf: pdf || "" })}
               healthImported={healthImported}
               onHealthImported={handleHealthImported}
+              backendUrl={API_URL}
             />
           ) : (
             <div className="flex items-center justify-center h-full">
@@ -336,7 +333,7 @@ export default function Home() {
             </div>
             <h2 className="text-xl font-semibold text-slate-900 mb-3">Before We Begin</h2>
             <p className="text-sm text-slate-700 mb-4 leading-relaxed">
-              Clinical Trial Navigator helps you find relevant clinical trials from the massive
+              Clinical Trial Compass helps you find relevant clinical trials from the massive
               ClinicalTrials.gov database of 500,000+ studies. Through a guided conversation,
               we&apos;ll narrow down trials that match your condition, location, and preferences
               — turning an overwhelming search into a manageable shortlist you can discuss with

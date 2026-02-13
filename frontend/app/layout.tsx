@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Clinical Trial Navigator",
+  title: "Clinical Trial Compass",
   description: "Find and understand clinical trials with AI-powered guidance",
 };
 

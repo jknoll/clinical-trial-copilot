@@ -35,7 +35,7 @@ export default function Home() {
 
   // Stats panel state
   const [showStats, setShowStats] = useState(true);
-  const [panelWidth, setPanelWidth] = useState(520);
+  const [panelWidth, setPanelWidth] = useState(560);
   const [filters, setFilters] = useState<FacetedFilters>(EMPTY_FILTERS);
   const [activeFilters, setActiveFilters] = useState<ActiveFilter[]>([]);
   const [stats, setStats] = useState<StatsData | null>(null);

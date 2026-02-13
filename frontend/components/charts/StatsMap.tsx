@@ -7,7 +7,7 @@ const StatsMapInner = dynamic(
   {
     ssr: false,
     loading: () => (
-      <div className="rounded-lg border border-slate-200 bg-slate-50 flex items-center justify-center h-[200px]">
+      <div className="rounded-lg border border-slate-200 bg-slate-50 flex items-center justify-center h-[340px]">
         <span className="text-xs text-slate-400">Loading map...</span>
       </div>
     ),

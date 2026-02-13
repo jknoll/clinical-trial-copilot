@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-import uuid
+import secrets
 from pathlib import Path
 
 from backend.config import settings
@@ -10,13 +10,22 @@ from backend.models.session import SessionState
 from backend.models.trial import MatchedTrial, TrialSummary
 
 
+_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"
+
+
 class SessionManager:
     def __init__(self, base_dir: Path | None = None):
         self.base_dir = base_dir or settings.sessions_dir
         self.base_dir.mkdir(parents=True, exist_ok=True)
 
+    def _generate_short_id(self, length: int = 6) -> str:
+        while True:
+            sid = "".join(secrets.choice(_ALPHABET) for _ in range(length))
+            if not (self.base_dir / sid).exists():
+                return sid
+
     def create_session(self) -> str:
-        session_id = str(uuid.uuid4())
+        session_id = self._generate_short_id()
         session_dir = self.base_dir / session_id
         session_dir.mkdir(parents=True, exist_ok=True)
         (session_dir / "deep_dives").mkdir(exist_ok=True)

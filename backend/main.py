@@ -17,7 +17,7 @@ from backend.session import SessionManager
 
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="Clinical Trial Navigator", version="0.1.0")
+app = FastAPI(title="Clinical Trial Compass", version="0.1.0")
 
 origins = [
     "http://localhost:3000",

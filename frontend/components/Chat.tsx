@@ -27,6 +27,7 @@ interface Props {
   onReportReady?: (htmlUrl: string, pdfUrl: string) => void;
   healthImported?: boolean;
   onHealthImported?: (summary: ImportSummary) => void;
+  backendUrl?: string;
 }
 
 // Demo answer lookup — keyword-based, each entry can only be used once.
@@ -85,7 +86,7 @@ function findDemoAnswer(text: string): string | null {
   return "Yes, let's continue";
 }
 
-export function Chat({ sessionId, onFiltersChanged, detectedLocation, zeroResults, demoRef, onLocationConfirmed, onLocationOverride, onReportReady, healthImported, onHealthImported }: Props) {
+export function Chat({ sessionId, onFiltersChanged, detectedLocation, zeroResults, demoRef, onLocationConfirmed, onLocationOverride, onReportReady, healthImported, onHealthImported, backendUrl }: Props) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
@@ -559,7 +560,7 @@ export function Chat({ sessionId, onFiltersChanged, detectedLocation, zeroResult
     <div className="flex flex-col h-full bg-white/40 backdrop-blur-sm">
       {/* Health import card — shown during intake phase; component handles its own collapse/badge */}
       {currentPhase === "intake" && (
-        <HealthImport sessionId={sessionId} onImported={onHealthImported} />
+        <HealthImport sessionId={sessionId} backendUrl={backendUrl} onImported={onHealthImported} />
       )}
 
       {/* Messages area */}

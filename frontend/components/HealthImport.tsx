@@ -11,7 +11,10 @@ import {
   Loader2,
   AlertCircle,
   X,
+  Copy,
+  Check,
 } from "lucide-react";
+import { QRCodeSVG } from "qrcode.react";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8100";
 
@@ -27,17 +30,33 @@ export interface ImportSummary {
 
 interface HealthImportProps {
   sessionId: string;
+  backendUrl?: string;
   onImported?: (summary: ImportSummary) => void;
 }
 
 type ImportState = "idle" | "uploading" | "success" | "error";
 
-export function HealthImport({ sessionId, onImported }: HealthImportProps) {
+export function HealthImport({ sessionId, backendUrl, onImported }: HealthImportProps) {
   const [state, setState] = useState<ImportState>("idle");
   const [expanded, setExpanded] = useState(true);
   const [summary, setSummary] = useState<ImportSummary | null>(null);
   const [errorMessage, setErrorMessage] = useState("");
+  const [copied, setCopied] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleCopySession = async () => {
+    try {
+      await navigator.clipboard.writeText(sessionId);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // clipboard may not be available
+    }
+  };
+
+  const qrData = backendUrl
+    ? JSON.stringify({ session_id: sessionId, backend_url: backendUrl })
+    : sessionId;
 
   const handleUpload = useCallback(
     async (file: File) => {
@@ -254,6 +273,44 @@ export function HealthImport({ sessionId, onImported }: HealthImportProps) {
                   <span className="text-xs text-slate-400 font-normal">&nbsp;</span>
                 </button>
               </div>
+
+              {/* Pair Device — QR code for iOS app */}
+              {backendUrl && (
+                <div className="mt-3 pt-3 border-t border-slate-100">
+                  <button
+                    onClick={() => {
+                      const el = document.getElementById("pair-device-qr");
+                      if (el) el.classList.toggle("hidden");
+                    }}
+                    className="flex items-center gap-1.5 text-xs font-medium text-slate-500 hover:text-slate-700 transition-colors"
+                  >
+                    <Smartphone className="w-3.5 h-3.5" />
+                    Pair Device
+                  </button>
+                  <div id="pair-device-qr" className="hidden mt-3 flex flex-col items-center gap-3">
+                    <QRCodeSVG value={qrData} size={160} />
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-mono font-bold tracking-wider text-slate-900">
+                        {sessionId}
+                      </span>
+                      <button
+                        onClick={handleCopySession}
+                        className="p-1 rounded hover:bg-slate-100 transition-colors text-slate-400 hover:text-slate-600"
+                        title="Copy session ID"
+                      >
+                        {copied ? (
+                          <Check className="w-3.5 h-3.5 text-emerald-500" />
+                        ) : (
+                          <Copy className="w-3.5 h-3.5" />
+                        )}
+                      </button>
+                    </div>
+                    <p className="text-xs text-slate-500 text-center">
+                      Scan with iOS app to connect
+                    </p>
+                  </div>
+                </div>
+              )}
 
               <div className="flex items-center justify-between mt-3">
                 <p className="text-xs text-slate-400">

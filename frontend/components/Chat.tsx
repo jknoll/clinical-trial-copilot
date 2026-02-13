@@ -487,7 +487,7 @@ export function Chat({ sessionId, onFiltersChanged, detectedLocation, zeroResult
         } else if (q.includes("phase")) {
           // Phases don't directly map to stats filters but we show them
           onFiltersChanged({}, [{ key: "phases", label: "Phases", value: val }]);
-        } else if (q.includes("status") || q.includes("recruiting")) {
+        } else if (q.includes("recruiting") || (q.includes("trial status") || q.includes("study status"))) {
           onFiltersChanged({ statuses: selections }, [{ key: "statuses", label: "Status", value: val }]);
         }
       }

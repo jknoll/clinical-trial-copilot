@@ -65,9 +65,14 @@ export function TrialCard({
       )}
       onClick={selectable ? onToggle : undefined}
     >
-      {selectable && selected && (
-        <div className="absolute top-2 right-2 z-10 w-6 h-6 rounded-full bg-blue-600 flex items-center justify-center">
-          <Check className="w-4 h-4 text-white" strokeWidth={3} />
+      {selectable && (
+        <div className={clsx(
+          "absolute top-3 right-3 z-10 w-5 h-5 rounded border-2 flex items-center justify-center transition-colors",
+          selected
+            ? "bg-blue-600 border-blue-600"
+            : "bg-white border-slate-300"
+        )}>
+          {selected && <Check className="w-3.5 h-3.5 text-white" strokeWidth={3} />}
         </div>
       )}
       <div className={clsx("flex gap-4", hasMap && "min-h-[180px]")}>

@@ -2,7 +2,7 @@
 
 import { useState, useRef, useCallback, useEffect } from "react";
 import { TrialCard } from "./TrialCard";
-import { ChevronLeft, ChevronRight, CheckSquare } from "lucide-react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 
 interface Trial {
   nctId: string;
@@ -85,7 +85,6 @@ export function TrialCarousel({ trials, onSelect }: Props) {
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 bg-slate-50">
         <div className="flex items-center gap-2">
-          <CheckSquare className="w-5 h-5 text-blue-600" />
           <h2 className="font-semibold text-slate-800">Select Trials for Analysis</h2>
           <span className="text-xs text-slate-500">
             ({selected.size} selected)

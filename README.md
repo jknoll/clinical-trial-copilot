@@ -113,3 +113,6 @@ pytest tests/ -v
 - Node.js 18+
 - Anthropic API key (Claude Opus 4.6)
 - Playwright + Chromium (for PDF export): `playwright install chromium`
+
+## Browsable Shadcn Components
+https://shipixen.com/component-explorer-shadcn

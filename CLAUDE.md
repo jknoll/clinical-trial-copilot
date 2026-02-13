@@ -48,3 +48,17 @@ npm run dev
 Copy `.env.example` to `.env` and fill in:
 - `ANTHROPIC_API_KEY` (required)
 - `OPENFDA_API_KEY` (optional, for higher rate limits)
+
+## Demo / Testing
+- Type `/test` as the first chat message to run the automated Ewing Sarcoma demo flow
+- Type `/speedtest` for a faster single-message flow using multiple myeloma (medium-commonality condition)
+
+## Context Overflow Protocol
+If you run out of context in the middle of executing a plan, you MUST:
+1. Clearly state to the user that context is running low and which tasks remain incomplete
+2. Summarize what was completed and what was not
+3. Offer to create a new plan scoped to the remaining (incomplete) tasks
+4. Ensure the new plan includes testing and verification of ALL untested functionality from the original plan
+
+## Plan File Management
+Whenever you write a new plan file in `~/.claude/plans/`, create or update a symlink at `~/.claude/plans/latest-plan.md` pointing to it.

@@ -98,7 +98,7 @@ const US_BOUNDS: L.LatLngBoundsExpression = [[24.0, -125.5], [50.0, -66.0]];
 function FitUS() {
   const map = useMap();
   useEffect(() => {
-    map.fitBounds(US_BOUNDS, { padding: [5, 5] });
+    map.fitBounds(US_BOUNDS, { padding: [20, 20] });
   }, [map]);
   return null;
 }
@@ -217,9 +217,12 @@ export function StatsMapInner({ data, userLocation, flyTo, travelDistance }: Pro
         center={[39.8283, -98.5795]}
         zoom={4}
         scrollWheelZoom={true}
-        style={{ height: "280px", width: "100%" }}
+        style={{ height: "320px", width: "100%" }}
         zoomControl={true}
         attributionControl={false}
+        maxBounds={[[20, -130], [55, -60]]}
+        minZoom={3}
+        maxZoom={7}
       >
         <FitUS />
         <MapFlyTo target={flyTo ?? null} />

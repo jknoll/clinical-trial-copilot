@@ -5,7 +5,7 @@ import { Send } from "lucide-react";
 import { WSClient } from "@/lib/websocket";
 import { ChatMessage } from "@/lib/types";
 import { MessageBubble } from "./MessageBubble";
-import { AgentActivity } from "./AgentActivity";
+import { AgentActivity, LogEntry } from "./AgentActivity";
 import { HealthImport, ImportSummary } from "./HealthImport";
 
 import { FacetedFilters, ActiveFilter } from "@/lib/types";
@@ -100,7 +100,7 @@ export function Chat({ sessionId, onFiltersChanged, detectedLocation, zeroResult
   const [currentPhase, setCurrentPhase] = useState("");
   const [deviceImportSummary, setDeviceImportSummary] = useState<ImportSummary | null>(null);
   const [currentActivity, setCurrentActivity] = useState("");
-  const [activityLog, setActivityLog] = useState<Record<string, string[]>>({});
+  const [activityLog, setActivityLog] = useState<Record<string, LogEntry[]>>({});
   const [isProcessingComplete, setIsProcessingComplete] = useState(false);
   const handleWidgetSubmitRef = useRef<((questionId: string, selections: string[], question?: string) => void) | null>(null);
   const handleTrialSelectionRef = useRef<((trialIds: string[]) => void) | null>(null);
@@ -297,10 +297,19 @@ export function Chat({ sessionId, onFiltersChanged, detectedLocation, zeroResult
       };
       const normalizedPhase = PHASE_MAP[rawPhase] || rawPhase;
       if (normalizedPhase && data.message) {
-        setActivityLog(prev => ({
-          ...prev,
-          [normalizedPhase]: [...(prev[normalizedPhase] || []), data.message as string]
-        }));
+        setActivityLog(prev => {
+          const phaseEntries = prev[normalizedPhase] || [];
+          // Mark the last entry in this phase as done
+          const updated = phaseEntries.map((entry, i) =>
+            i === phaseEntries.length - 1 && !entry.done
+              ? { ...entry, done: true }
+              : entry
+          );
+          return {
+            ...prev,
+            [normalizedPhase]: [...updated, { message: data.message as string, done: false }],
+          };
+        });
       }
     } else if (type === "report_ready") {
       setIsTyping(false);
@@ -340,6 +349,16 @@ export function Chat({ sessionId, onFiltersChanged, detectedLocation, zeroResult
       setIsTyping(false);
       setIsServerProcessing(false);
       setCurrentActivity("");
+      // Mark all remaining log entries as done
+      setActivityLog(prev => {
+        const updated: Record<string, LogEntry[]> = {};
+        for (const [phase, entries] of Object.entries(prev)) {
+          updated[phase] = entries.map(entry =>
+            entry.done ? entry : { ...entry, done: true }
+          );
+        }
+        return updated;
+      });
       // Refocus input so user can immediately type
       setTimeout(() => inputRef.current?.focus(), 50);
     } else if (type === "error") {
@@ -428,11 +447,18 @@ export function Chat({ sessionId, onFiltersChanged, detectedLocation, zeroResult
     let text = input.trim();
     if (!text || !wsRef.current) return;
 
-    // Hidden test mode: typing "test" as first message activates automated demo
-    if (text.toLowerCase() === "test" && messageCountRef.current === 0) {
+    // Hidden test mode: typing "/test" as first message activates automated demo
+    if (text.toLowerCase() === "/test" && messageCountRef.current === 0) {
       demoModeRef.current = true;
       _usedDemoAnswers.clear();
       text = "Ewing Sarcoma";
+    }
+
+    // Speed test: provides all patient info in one message for fastest possible flow
+    if (text.toLowerCase() === "/speedtest" && messageCountRef.current === 0) {
+      demoModeRef.current = true;
+      _usedDemoAnswers.clear();
+      text = "I have relapsed multiple myeloma, diagnosed 2 years ago, currently on second-line treatment with lenalidomide and dexamethasone. 58 year old female in Chicago, IL. Willing to travel up to 200 miles. Open to any phase, treatment trials, comfortable with placebo. Activity level: I can do most daily activities but get tired easily.";
     }
 
     const msg: ChatMessage = {

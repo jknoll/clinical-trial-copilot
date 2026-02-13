@@ -54,8 +54,8 @@ application stays visually consistent.
 | `slate-500` | `#64748b` | Subtitle text, metadata, status messages, axis tick fill |
 | `slate-400` | `#94a3b8` | Muted identifiers (NCT IDs), typing dots, rank numbers |
 | `slate-300` | `#cbd5e1` | Checkbox borders, vertical dividers |
-| `slate-200` | `#e2e8f0` | Card/panel borders, table dividers, header border-bottom |
-| `slate-100` | `#f1f5f9` | Phase badge bg, table row hover bg, section card border, row dividers |
+| `slate-200` | `#e2e8f0` | Card/panel borders, table dividers, header border-bottom, section card border |
+| `slate-100` | `#f1f5f9` | Phase badge bg, table row hover bg, row dividers |
 | `slate-50` | `#f8fafc` | Stats panel bg, toolbar bg, table header bg |
 
 ### 2.4 Semantic — Fit Scores & Status
@@ -146,7 +146,7 @@ Phase 1 `#93c5fd`, Phase 2 `#60a5fa`, Phase 3 `#3b82f6`, Phase 4 `#1d4ed8`
 
 - **Cards (trial-card)**: `border: 1px solid #e2e8f0`, hover shadow `0 4px 6px -1px rgba(0,0,0,0.1)`.
 - **Assistant bubbles**: `box-shadow: 0 1px 2px rgba(0,0,0,0.05); border: 1px solid #e2e8f0`.
-- **Section cards** (stats panel): `border border-slate-100` (lighter than page-level borders).
+- **Section cards** (stats panel): `bg-white border border-slate-200 shadow-sm`.
 - **General borders**: `border-slate-200` for structural dividers (header, input bar, panel edge).
 - **Hover transitions**: `transition-colors` on buttons, `transition: box-shadow 0.2s` on cards.
 
@@ -183,7 +183,7 @@ Phase 1 `#93c5fd`, Phase 2 `#60a5fa`, Phase 3 `#3b82f6`, Phase 4 `#1d4ed8`
   - Large number: `text-3xl font-bold tabular-nums`.
   - Progress bar: `h-2 bg-blue-800/50 rounded-full` track, `bg-white/80` fill.
 - Active filter chips: `bg-blue-50 text-blue-700 rounded-full text-xs`.
-- Section containers: `bg-white rounded-lg border border-slate-100 p-2`.
+- Section containers: `bg-white rounded-lg border border-slate-200 shadow-sm p-2`.
 
 ### 6.5 Comparison Table
 

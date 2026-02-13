@@ -2,8 +2,21 @@
 
 import { useEffect, useState } from "react";
 import { ActiveFilter, FacetedFilters, StatsData, SponsorCount, EnrollmentBucket } from "@/lib/types";
-import { fetchSponsorDistribution, fetchEnrollmentDistribution } from "@/lib/statsApi";
-import { FunnelChart } from "./charts/FunnelChart";
+import {
+  fetchSponsorDistribution,
+  fetchEnrollmentDistribution,
+  fetchStudyTypes,
+  fetchGender,
+  fetchAgeGroups,
+  fetchInterventionTypes,
+  fetchDuration,
+  fetchStartYears,
+  fetchFacilityCounts,
+  fetchCountries,
+  fetchCompletionRate,
+  fetchFunderTypes,
+  NameValue,
+} from "@/lib/statsApi";
 import { PhaseDonut } from "./charts/PhaseDonut";
 import { StatusBar } from "./charts/StatusBar";
 import { StatsMap } from "./charts/StatsMap";
@@ -11,7 +24,17 @@ import { DiseaseBar } from "./charts/DiseaseBar";
 import { SponsorBar } from "./charts/SponsorBar";
 import { EnrollmentHistogram } from "./charts/EnrollmentHistogram";
 import { TrialTable } from "./charts/TrialTable";
-import { Database, X, Filter, TrendingDown, Activity, Building2, Users, List } from "lucide-react";
+import { StudyTypeChart } from "./charts/StudyTypeChart";
+import { GenderChart } from "./charts/GenderChart";
+import { AgeGroupChart } from "./charts/AgeGroupChart";
+import { InterventionTypeChart } from "./charts/InterventionTypeChart";
+import { DurationChart } from "./charts/DurationChart";
+import { StartYearChart } from "./charts/StartYearChart";
+import { FacilityCountChart } from "./charts/FacilityCountChart";
+import { CountryChart } from "./charts/CountryChart";
+import { CompletionRateChart } from "./charts/CompletionRateChart";
+import { FunderTypeChart } from "./charts/FunderTypeChart";
+import { Database, X, Filter, Activity, Building2, Users, List, FlaskConical, Globe, Calendar, Clock, MapPin, CheckCircle, Wallet, Beaker, UserCheck } from "lucide-react";
 
 interface Props {
   stats: StatsData | null;
@@ -24,11 +47,24 @@ interface Props {
   mapFlyTo?: { lat: number; lon: number } | null;
   travelDistance?: number | null;
   filters?: FacetedFilters;
+  sessionId?: string | null;
 }
 
-export function StatsPanel({ stats, activeFilters, loading, error, userLocation, topConditions, activeCondition, mapFlyTo, travelDistance, filters }: Props) {
+export function StatsPanel({ stats, activeFilters, loading, error, userLocation, topConditions, activeCondition, mapFlyTo, travelDistance, filters, sessionId }: Props) {
   const [sponsors, setSponsors] = useState<SponsorCount[]>([]);
   const [enrollment, setEnrollment] = useState<EnrollmentBucket[]>([]);
+
+  // Session-based AACT stats
+  const [studyTypes, setStudyTypes] = useState<NameValue[]>([]);
+  const [gender, setGender] = useState<NameValue[]>([]);
+  const [ageGroups, setAgeGroups] = useState<NameValue[]>([]);
+  const [interventionTypes, setInterventionTypes] = useState<NameValue[]>([]);
+  const [duration, setDuration] = useState<NameValue[]>([]);
+  const [startYears, setStartYears] = useState<NameValue[]>([]);
+  const [facilityCounts, setFacilityCounts] = useState<NameValue[]>([]);
+  const [countries, setCountries] = useState<NameValue[]>([]);
+  const [completionRate, setCompletionRate] = useState<NameValue[]>([]);
+  const [funderTypes, setFunderTypes] = useState<NameValue[]>([]);
 
   useEffect(() => {
     if (!filters) return;
@@ -44,6 +80,54 @@ export function StatsPanel({ stats, activeFilters, loading, error, userLocation,
 
     return () => { ignore = true; };
   }, [filters]);
+
+  // Fetch session-based AACT stats when sessionId changes
+  useEffect(() => {
+    if (!sessionId) return;
+    let ignore = false;
+
+    fetchStudyTypes(sessionId)
+      .then((data) => { if (!ignore) setStudyTypes(data); })
+      .catch(() => { if (!ignore) setStudyTypes([]); });
+
+    fetchGender(sessionId)
+      .then((data) => { if (!ignore) setGender(data); })
+      .catch(() => { if (!ignore) setGender([]); });
+
+    fetchAgeGroups(sessionId)
+      .then((data) => { if (!ignore) setAgeGroups(data); })
+      .catch(() => { if (!ignore) setAgeGroups([]); });
+
+    fetchInterventionTypes(sessionId)
+      .then((data) => { if (!ignore) setInterventionTypes(data); })
+      .catch(() => { if (!ignore) setInterventionTypes([]); });
+
+    fetchDuration(sessionId)
+      .then((data) => { if (!ignore) setDuration(data); })
+      .catch(() => { if (!ignore) setDuration([]); });
+
+    fetchStartYears(sessionId)
+      .then((data) => { if (!ignore) setStartYears(data); })
+      .catch(() => { if (!ignore) setStartYears([]); });
+
+    fetchFacilityCounts(sessionId)
+      .then((data) => { if (!ignore) setFacilityCounts(data); })
+      .catch(() => { if (!ignore) setFacilityCounts([]); });
+
+    fetchCountries(sessionId)
+      .then((data) => { if (!ignore) setCountries(data); })
+      .catch(() => { if (!ignore) setCountries([]); });
+
+    fetchCompletionRate(sessionId)
+      .then((data) => { if (!ignore) setCompletionRate(data); })
+      .catch(() => { if (!ignore) setCompletionRate([]); });
+
+    fetchFunderTypes(sessionId)
+      .then((data) => { if (!ignore) setFunderTypes(data); })
+      .catch(() => { if (!ignore) setFunderTypes([]); });
+
+    return () => { ignore = true; };
+  }, [sessionId]);
 
   if (error) {
     return (
@@ -151,13 +235,6 @@ export function StatsPanel({ stats, activeFilters, loading, error, userLocation,
           </Section>
         )}
 
-        {/* Search funnel */}
-        {stats.funnel.length > 1 && (
-          <Section title="Search Funnel" icon={<TrendingDown className="w-3.5 h-3.5" />}>
-            <FunnelChart data={stats.funnel} />
-          </Section>
-        )}
-
         {/* Status breakdown */}
         {Object.keys(stats.status_distribution).length > 0 && (
           <Section title="Status Breakdown">
@@ -193,6 +270,76 @@ export function StatsPanel({ stats, activeFilters, loading, error, userLocation,
           </Section>
         )}
 
+        {/* Study Types */}
+        {studyTypes.length > 0 && (
+          <Section title="Study Types" icon={<Beaker className="w-3.5 h-3.5" />}>
+            <StudyTypeChart data={studyTypes} />
+          </Section>
+        )}
+
+        {/* Intervention Types */}
+        {interventionTypes.length > 0 && (
+          <Section title="Intervention Types" icon={<FlaskConical className="w-3.5 h-3.5" />}>
+            <InterventionTypeChart data={interventionTypes} />
+          </Section>
+        )}
+
+        {/* Gender Eligibility */}
+        {gender.length > 0 && (
+          <Section title="Gender Eligibility" icon={<UserCheck className="w-3.5 h-3.5" />}>
+            <GenderChart data={gender} />
+          </Section>
+        )}
+
+        {/* Age Groups */}
+        {ageGroups.length > 0 && (
+          <Section title="Age Groups" icon={<Users className="w-3.5 h-3.5" />}>
+            <AgeGroupChart data={ageGroups} />
+          </Section>
+        )}
+
+        {/* Funder Types */}
+        {funderTypes.length > 0 && (
+          <Section title="Funder Types" icon={<Wallet className="w-3.5 h-3.5" />}>
+            <FunderTypeChart data={funderTypes} />
+          </Section>
+        )}
+
+        {/* Countries */}
+        {countries.length > 0 && (
+          <Section title="Countries" icon={<Globe className="w-3.5 h-3.5" />}>
+            <CountryChart data={countries} />
+          </Section>
+        )}
+
+        {/* Start Years */}
+        {startYears.length > 0 && (
+          <Section title="Start Years" icon={<Calendar className="w-3.5 h-3.5" />}>
+            <StartYearChart data={startYears} />
+          </Section>
+        )}
+
+        {/* Study Duration */}
+        {duration.length > 0 && (
+          <Section title="Study Duration" icon={<Clock className="w-3.5 h-3.5" />}>
+            <DurationChart data={duration} />
+          </Section>
+        )}
+
+        {/* Facility Counts */}
+        {facilityCounts.length > 0 && (
+          <Section title="Facility Counts" icon={<MapPin className="w-3.5 h-3.5" />}>
+            <FacilityCountChart data={facilityCounts} />
+          </Section>
+        )}
+
+        {/* Completion Rate */}
+        {completionRate.length > 0 && (
+          <Section title="Completion Rate" icon={<CheckCircle className="w-3.5 h-3.5" />}>
+            <CompletionRateChart data={completionRate} />
+          </Section>
+        )}
+
         {loading && (
           <div className="flex items-center justify-center py-2">
             <div className="flex items-center gap-2 text-xs text-slate-400">
@@ -221,7 +368,7 @@ function Section({
         {icon}
         {title}
       </div>
-      <div className="bg-white/80 rounded-lg border border-slate-100 p-2">{children}</div>
+      <div className="bg-white rounded-lg border border-slate-200 shadow-sm p-2">{children}</div>
     </div>
   );
 }

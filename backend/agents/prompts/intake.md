@@ -97,3 +97,7 @@ Ask: "Does this look correct? Is there anything you would like to change or add?
 Only proceed to the search phase after the patient confirms.
 
 Call `save_patient_profile` with the structured profile data after confirmation.
+
+## Real-Time Data Panel Updates
+
+IMPORTANT: After each patient answer that provides filter-relevant information (condition, age, sex, location, travel distance, phase preference), call `emit_partial_filters` with the known values so the data panel updates in real time. For example, after the patient mentions their condition, immediately call emit_partial_filters with the condition field. After they provide location, call it with latitude, longitude, and location fields. You do not need to wait until all information is gathered — emit what you know as soon as you know it.

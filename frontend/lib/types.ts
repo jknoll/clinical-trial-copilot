@@ -30,6 +30,8 @@ export interface TrialCardData {
   nearestDistanceMiles: number | null;
   interventions: string[];
   sponsor: string;
+  latitude?: number;
+  longitude?: number;
 }
 
 export interface MapData {

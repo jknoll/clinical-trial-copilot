@@ -226,7 +226,7 @@ export default function Home() {
     <div className="flex flex-col h-screen">
       {/* Header */}
       <header className="border-b border-slate-200/60 px-4 py-2 flex items-center gap-3 shrink-0" style={{ backgroundColor: '#f8fafc' }}>
-        <img src="/logo.png" alt="Clinical Trial Compass" className="w-[108px] h-[108px] shrink-0 object-contain mix-blend-multiply" />
+        <img src="/logo.png" alt="Clinical Trial Compass" className="w-[216px] h-[216px] shrink-0 object-contain mix-blend-multiply" />
         <div className="flex-1">
           <h1 className="text-lg font-semibold bg-gradient-to-r from-slate-900 to-slate-700 bg-clip-text text-transparent">Clinical Trial Compass</h1>
           <p className="text-xs text-slate-500">AI-powered clinical trial guidance</p>
@@ -261,6 +261,7 @@ export default function Home() {
                 mapFlyTo={mapFlyTo}
                 travelDistance={filters.distance_miles}
                 filters={filters}
+                sessionId={sessionId}
               />
             </div>
             <SplitHandle currentWidth={panelWidth} onResize={setPanelWidth} />
@@ -344,7 +345,7 @@ export default function Home() {
             <div className="flex gap-3 mb-4">
               <a href="https://clinicaltrials.gov" target="_blank" rel="noopener noreferrer"
                 className="flex-1 flex items-center gap-2.5 p-3 rounded-lg border border-slate-200 hover:border-blue-300 hover:bg-blue-50/50 transition-colors text-left">
-                <img src="https://clinicaltrials.gov/favicon.ico" alt="" className="w-6 h-6 shrink-0" />
+                <img src="https://clinicaltrials.gov/favicon.ico" alt="" className="w-9 h-9 shrink-0" />
                 <div>
                   <div className="text-xs font-semibold text-slate-800">ClinicalTrials.gov</div>
                   <div className="text-xs text-slate-500">{stats ? stats.total.toLocaleString() : "500,000+"} studies</div>
@@ -352,7 +353,7 @@ export default function Home() {
               </a>
               <a href="https://open.fda.gov" target="_blank" rel="noopener noreferrer"
                 className="flex-1 flex items-center gap-2.5 p-3 rounded-lg border border-slate-200 hover:border-blue-300 hover:bg-blue-50/50 transition-colors text-left">
-                <img src="https://open.fda.gov/img/l_openFDA.png" alt="" className="w-6 h-6 shrink-0 object-contain" />
+                <img src="https://open.fda.gov/img/l_openFDA.png" alt="" className="w-9 h-9 shrink-0 object-contain" />
                 <div>
                   <div className="text-xs font-semibold text-slate-800">openFDA</div>
                   <div className="text-xs text-slate-500">Drug labels &amp; adverse events</div>

@@ -10,5 +10,4 @@ export const CHART_PALETTE = [
   "#ef4444", // red
   "#3b82f6", // blue
 ];
-export const GREY_DISABLED = "#d1d5db";
-export const DISABLED_OPACITY = 0.35;
+export const DISABLED_OPACITY = 0.3;

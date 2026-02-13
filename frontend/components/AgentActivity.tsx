@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useRef } from "react";
-import { CheckCircle2, ClipboardList, Search, GitCompare, CheckSquare, FileText, MessageCircle } from "lucide-react";
+import { CheckCircle2, ClipboardList, Search, GitCompare, CheckSquare, FileText, MessageCircle, Check } from "lucide-react";
 
 const PHASES = [
   { key: "intake", label: "Intake", icon: ClipboardList },
@@ -12,30 +12,84 @@ const PHASES = [
   { key: "followup", label: "Follow-up", icon: MessageCircle },
 ] as const;
 
+export interface LogEntry {
+  message: string;
+  done: boolean;
+}
+
 interface Props {
   currentPhase: string;
   activity: string;
   isProcessing: boolean;
-  activityLog?: Record<string, string[]>;
+  activityLog?: Record<string, LogEntry[]>;
   isComplete?: boolean;
 }
 
+const NCT_REGEX = /NCT\d{8}/g;
+
 function renderLogMessage(message: string): React.ReactNode {
-  // Linkify FDA drug lookups: "Looking up FDA data for {drug}..."
-  const fdaMatch = message.match(/^Looking up FDA data for (.+?)\.\.\.$/);
+  // Linkify FDA drug lookups: "Looking up FDA data for {drug}..." or "Looking up FDA data for {drug} (NCT...)..."
+  const fdaMatch = message.match(/^Looking up FDA data for (.+?)(?:\s*\(NCT\d{8}\))?\.\.\.$/);
   if (fdaMatch) {
-    const drug = fdaMatch[1];
+    const drug = fdaMatch[1].trim();
     const url = `https://dailymed.nlm.nih.gov/dailymed/search.cfm?labeltype=all&query=${encodeURIComponent(drug)}`;
+    // Check for NCT ID in the parenthetical
+    const nctMatch = message.match(/\((NCT\d{8})\)/);
     return (
       <>
         Looking up FDA data for{" "}
         <a href={url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
           {drug}
         </a>
+        {nctMatch && (
+          <>
+            {" ("}
+            <a
+              href={`https://clinicaltrials.gov/study/${nctMatch[1]}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-blue-600 hover:underline"
+            >
+              {nctMatch[1]}
+            </a>
+            {")"}
+          </>
+        )}
         ...
       </>
     );
   }
+
+  // Linkify NCT IDs (e.g., NCT12345678) to ClinicalTrials.gov in any message
+  if (NCT_REGEX.test(message)) {
+    NCT_REGEX.lastIndex = 0; // Reset regex state
+    const parts: React.ReactNode[] = [];
+    let lastIndex = 0;
+    let match: RegExpExecArray | null;
+    while ((match = NCT_REGEX.exec(message)) !== null) {
+      if (match.index > lastIndex) {
+        parts.push(message.slice(lastIndex, match.index));
+      }
+      const nctId = match[0];
+      parts.push(
+        <a
+          key={`${nctId}-${match.index}`}
+          href={`https://clinicaltrials.gov/study/${nctId}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-blue-600 hover:underline"
+        >
+          {nctId}
+        </a>
+      );
+      lastIndex = match.index + nctId.length;
+    }
+    if (lastIndex < message.length) {
+      parts.push(message.slice(lastIndex));
+    }
+    return <>{parts}</>;
+  }
+
   return message;
 }
 
@@ -51,17 +105,17 @@ export function AgentActivity({ currentPhase, activity, isProcessing, activityLo
 
   const currentIdx = PHASES.findIndex((p) => p.key === currentPhase);
 
-  // Collect all log entries across phases in order, with phase tags
-  const allLogs: { phase: string; message: string }[] = [];
+  // Collect all log entries across phases in order, with phase tags and done state
+  const allLogs: { phase: string; message: string; done: boolean }[] = [];
   for (const phase of PHASES) {
     const entries = activityLog?.[phase.key] || [];
-    for (const msg of entries) {
-      allLogs.push({ phase: phase.key, message: msg });
+    for (const entry of entries) {
+      allLogs.push({ phase: phase.key, message: entry.message, done: entry.done });
     }
   }
   // Add current activity if not already in logs
   if (activity && (allLogs.length === 0 || allLogs[allLogs.length - 1].message !== activity)) {
-    allLogs.push({ phase: currentPhase, message: activity });
+    allLogs.push({ phase: currentPhase, message: activity, done: false });
   }
 
   // Show the most recent entries (tail)
@@ -119,13 +173,15 @@ export function AgentActivity({ currentPhase, activity, isProcessing, activityLo
               <div
                 key={`${entry.phase}-${i}`}
                 className={`flex items-center gap-1.5 text-xs leading-relaxed ${
-                  isLatest ? "text-slate-600" : "text-slate-400"
+                  isLatest && !entry.done ? "text-slate-600" : "text-slate-400"
                 }`}
               >
-                {isLatest && isProcessing && (
+                {entry.done ? (
+                  <Check className="w-3 h-3 text-emerald-500 shrink-0" />
+                ) : isProcessing ? (
                   <span className="inline-block w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse shrink-0" />
-                )}
-                <span className={`truncate ${isLatest ? "font-medium" : ""}`}>
+                ) : null}
+                <span className={`truncate ${isLatest && !entry.done ? "font-medium" : ""}`}>
                   {renderLogMessage(entry.message)}
                 </span>
               </div>

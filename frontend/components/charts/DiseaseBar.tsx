@@ -9,7 +9,7 @@ import {
   ResponsiveContainer,
   Cell,
 } from "recharts";
-import { CHART_PALETTE, GREY_DISABLED, DISABLED_OPACITY } from "@/lib/chartPalette";
+import { CHART_PALETTE, DISABLED_OPACITY } from "@/lib/chartPalette";
 
 interface ConditionEntry {
   condition: string;
@@ -85,7 +85,7 @@ export function DiseaseBar({ data, activeCondition, userCondition }: Props) {
             {entries.map((entry, i) => (
               <Cell
                 key={i}
-                fill={entry.matches ? CHART_PALETTE[i % CHART_PALETTE.length] : GREY_DISABLED}
+                fill={CHART_PALETTE[i % CHART_PALETTE.length]}
                 fillOpacity={entry.matches ? 1 : DISABLED_OPACITY}
                 stroke={entry.isUserCondition ? CHART_PALETTE[i % CHART_PALETTE.length] : "none"}
                 strokeWidth={entry.isUserCondition ? 2 : 0}

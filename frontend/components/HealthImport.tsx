@@ -150,7 +150,8 @@ export function HealthImport({ sessionId, backendUrl, onImported, externalSummar
             {summary?.source_file === "ios-healthkit" ? "iOS: " : "Imported: "}{summary?.lab_count ?? 0} labs, {summary?.vital_count ?? 0} vitals, {summary?.medication_count ?? 0} medications
             {summary?.estimated_ecog != null && ` | ECOG ${summary.estimated_ecog}`}
           </span>
-          <ChevronDown className="w-4 h-4 ml-auto shrink-0" />
+          <img src="/Apple_Health_badge_US-UK_blk_sRGB.svg" alt="Works with Apple Health" className="h-[20px] w-auto shrink-0 ml-auto" />
+          <ChevronDown className="w-4 h-4 shrink-0" />
         </button>
       </div>
     );
@@ -184,6 +185,8 @@ export function HealthImport({ sessionId, backendUrl, onImported, externalSummar
             </span>
             <span className="text-xs text-slate-400 font-normal">(Optional)</span>
           </div>
+          <div className="flex items-center gap-2">
+            <img src="/Apple_Health_badge_US-UK_blk_sRGB.svg" alt="Works with Apple Health" className="h-[24px] w-auto" />
           <button
             onClick={state === "success" ? () => setExpanded(false) : handleDismiss}
             className="text-slate-400 hover:text-slate-600 transition-colors"
@@ -195,6 +198,7 @@ export function HealthImport({ sessionId, backendUrl, onImported, externalSummar
               <X className="w-4 h-4" />
             )}
           </button>
+          </div>
         </div>
 
         {/* Body */}
@@ -326,16 +330,9 @@ export function HealthImport({ sessionId, backendUrl, onImported, externalSummar
                 </div>
               )}
 
-              <div className="flex items-center justify-between mt-3">
-                <p className="text-xs text-slate-400">
-                  How to export: Settings &gt; Health &gt; Export All Health Data
-                </p>
-                <img
-                  src="/Apple_Health_badge_US-UK_blk_sRGB.svg"
-                  alt="Works with Apple Health"
-                  className="h-[34px] w-auto"
-                />
-              </div>
+              <p className="text-xs text-slate-400 mt-3">
+                How to export: Settings &gt; Health &gt; Export All Health Data
+              </p>
             </>
           )}
         </div>

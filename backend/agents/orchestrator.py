@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
+import time
 from pathlib import Path
 from typing import Any
 
@@ -87,10 +89,12 @@ def _build_system_prompt(phase: SessionPhase) -> str:
         phase_prompt = _load_prompt("intake")
     elif phase == SessionPhase.SEARCH:
         phase_prompt = _load_prompt("search")
-    elif phase in (SessionPhase.MATCHING, SessionPhase.SELECTION):
+    elif phase == SessionPhase.MATCHING:
         phase_prompt = _load_prompt("match_translate")
         phase_prompt += "\n\n" + _load_skill("eligibility_analysis")
         phase_prompt += "\n\n" + _load_skill("medical_translation")
+    elif phase == SessionPhase.SELECTION:
+        phase_prompt = _load_prompt("selection")
     elif phase in (SessionPhase.REPORT, SessionPhase.FOLLOWUP):
         phase_prompt = _load_prompt("report_generator")
         phase_prompt += "\n\n" + _load_skill("medical_translation")
@@ -352,6 +356,8 @@ TOOLS: list[dict[str, Any]] = [
                             "nearest_distance_miles": {"type": "number"},
                             "interventions": {"type": "array", "items": {"type": "string"}},
                             "sponsor": {"type": "string"},
+                            "latitude": {"type": "number", "description": "Latitude of the nearest trial site, from the location geoPoint data."},
+                            "longitude": {"type": "number", "description": "Longitude of the nearest trial site, from the location geoPoint data."},
                         },
                     },
                 },
@@ -501,6 +507,33 @@ TOOLS: list[dict[str, Any]] = [
             "required": []
         }
     },
+    {
+        "name": "emit_partial_filters",
+        "description": "Emit partial filter updates to the frontend data panel as information is gathered during intake. Call this after each patient answer that provides filter-relevant info.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "condition": {"type": "string", "description": "Patient's primary condition/diagnosis"},
+                "age": {"type": "integer", "description": "Patient's age"},
+                "sex": {"type": "string", "description": "Patient's biological sex"},
+                "location": {"type": "string", "description": "Location description (e.g., 'San Francisco, CA')"},
+                "latitude": {"type": "number", "description": "Location latitude"},
+                "longitude": {"type": "number", "description": "Location longitude"},
+                "distance_miles": {"type": "integer", "description": "Maximum travel distance in miles"},
+                "statuses": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Trial statuses to filter by",
+                },
+                "phases": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Trial phases to filter by",
+                },
+            },
+            "required": [],
+        },
+    },
 ]
 
 
@@ -516,6 +549,15 @@ class AgentOrchestrator:
         self._intake_answers: dict[str, str] = {}
         self._free_text_counter: int = 0
         self._detected_location: dict[str, Any] | None = None
+        # Track the last fetched trial locations for richer distance status messages
+        self._last_locations: list[dict[str, Any]] = []
+        # Track the current NCT ID being analyzed for contextual status messages
+        self._current_nct_id: str = ""
+        self._current_brief_title: str = ""
+        # Heartbeat tracking for long-running operations
+        self._heartbeat_queue: asyncio.Queue[dict[str, Any]] = asyncio.Queue()
+        self._iteration_start: float = 0.0
+        self._tools_executed: int = 0
 
     def _extract_intake_answer(self, user_message: str) -> None:
         """Parse structured widget responses and free-text messages during intake.
@@ -571,6 +613,8 @@ class AgentOrchestrator:
                         "sponsor": r.get("sponsor", ""),
                         "enrollment_count": r.get("enrollment_count"),
                         "nearest_city": (r.get("locations", [{}])[0].get("city", "") + ", " + r.get("locations", [{}])[0].get("state", "")) if r.get("locations") else "",
+                        "latitude": r.get("locations", [{}])[0].get("latitude") if r.get("locations") else None,
+                        "longitude": r.get("locations", [{}])[0].get("longitude") if r.get("locations") else None,
                     }
                     for r in valid[:15]
                 ]
@@ -581,6 +625,9 @@ class AgentOrchestrator:
                 result = await get_trial_details(tool_input["nct_id"])
                 # Extract only the fields Claude needs, skip raw protocol
                 summary = _parse_trial_detail(result)
+                # Cache brief title for richer status messages
+                self._current_nct_id = tool_input["nct_id"]
+                self._current_brief_title = (summary.get("brief_title") or "")[:80]
                 return json.dumps(summary, default=str)
 
             elif tool_name == "get_eligibility_criteria":
@@ -591,6 +638,8 @@ class AgentOrchestrator:
             elif tool_name == "get_trial_locations":
                 from backend.mcp_servers.clinical_trials import get_trial_locations
                 result = await get_trial_locations(tool_input["nct_id"])
+                # Cache locations for richer distance status messages
+                self._last_locations = result[:10]
                 # Limit to 10 closest locations to save context
                 return json.dumps(result[:10], default=str)
 
@@ -704,6 +753,11 @@ class AgentOrchestrator:
 
             elif tool_name == "generate_report":
                 from backend.report.generator import generate_report
+                self._pending_emissions.append({
+                    "type": "status",
+                    "phase": "report",
+                    "message": "Analyzing selected trials...",
+                })
                 profile = self.session_mgr.get_profile(self.session_id)
                 matched = self.session_mgr.get_matched_trials(self.session_id)
                 questions = tool_input.get("questions_for_doctor")
@@ -717,8 +771,18 @@ class AgentOrchestrator:
                     ]
                 elif isinstance(glossary_raw, list):
                     glossary = glossary_raw
+                self._pending_emissions.append({
+                    "type": "status",
+                    "phase": "report",
+                    "message": "Generating comprehensive report...",
+                })
                 html = generate_report(profile, matched, questions, glossary)
                 self.session_mgr.save_report(self.session_id, html)
+                self._pending_emissions.append({
+                    "type": "status",
+                    "phase": "report",
+                    "message": "Formatting PDF report...",
+                })
                 state = self.session_mgr.get_state(self.session_id)
                 state.report_generated = True
                 self.session_mgr.save_state(self.session_id, state)
@@ -738,6 +802,11 @@ class AgentOrchestrator:
                 except Exception:
                     pass
                 self._pending_emissions.append(emission)
+                self._pending_emissions.append({
+                    "type": "status",
+                    "phase": "report",
+                    "message": "Report complete!",
+                })
                 return json.dumps(result_data)
 
             elif tool_name == "get_health_import_summary":
@@ -757,6 +826,14 @@ class AgentOrchestrator:
                     "import_date": hk.import_date,
                 })
 
+            elif tool_name == "emit_partial_filters":
+                filters_emission: dict[str, Any] = {"type": "filters_update"}
+                for key in ("condition", "age", "sex", "location", "latitude", "longitude", "distance_miles", "statuses", "phases"):
+                    if key in tool_input and tool_input[key] is not None:
+                        filters_emission[key] = tool_input[key]
+                self._pending_emissions.append(filters_emission)
+                return json.dumps({"status": "filters_emitted"})
+
             else:
                 return json.dumps({"error": f"Unknown tool: {tool_name}"})
 
@@ -764,13 +841,64 @@ class AgentOrchestrator:
             logger.exception("Tool execution failed: %s", tool_name)
             return json.dumps({"error": str(e)})
 
+    async def _execute_tool_with_heartbeat(
+        self, tool_name: str, tool_input: dict, state: SessionState
+    ) -> str:
+        """Execute a tool with periodic heartbeat emissions for long-running operations."""
+        HEARTBEAT_INTERVAL = 8  # seconds
+
+        async def _heartbeat(phase: str, tool_label: str):
+            """Emit periodic heartbeat status messages."""
+            elapsed = 0
+            while True:
+                await asyncio.sleep(HEARTBEAT_INTERVAL)
+                elapsed += HEARTBEAT_INTERVAL
+                self._heartbeat_queue.put_nowait({
+                    "type": "status",
+                    "phase": phase,
+                    "message": f"Still working on {tool_label}... ({elapsed}s)",
+                })
+
+        # Only attach heartbeat for potentially long-running tools
+        long_running = {
+            "search_trials", "get_trial_details", "get_eligibility_criteria",
+            "get_trial_locations", "get_adverse_events", "get_drug_label",
+            "generate_report", "save_matched_trials",
+        }
+        if tool_name in long_running:
+            phase = state.phase.value
+            # Build a descriptive label
+            if tool_name in ("get_trial_details", "get_eligibility_criteria", "get_trial_locations"):
+                label = f"{tool_input.get('nct_id', tool_name)}"
+            elif tool_name in ("get_adverse_events", "get_drug_label"):
+                label = f"FDA lookup for {tool_input.get('drug_name', 'drug')}"
+            elif tool_name == "search_trials":
+                label = "trial search"
+            elif tool_name == "generate_report":
+                label = "report generation"
+            elif tool_name == "save_matched_trials":
+                label = "saving analysis"
+            else:
+                label = tool_name
+
+            heartbeat_task = asyncio.create_task(_heartbeat(phase, label))
+            try:
+                result = await self._execute_tool(tool_name, tool_input)
+            finally:
+                heartbeat_task.cancel()
+                try:
+                    await heartbeat_task
+                except asyncio.CancelledError:
+                    pass
+            return result
+        else:
+            return await self._execute_tool(tool_name, tool_input)
+
     def _trim_history(self, state: SessionState | None = None):
         """Trim conversation history to prevent context overflow.
 
-        During INTAKE phase, uses a higher threshold (50) to preserve more Q&A pairs.
-        In other phases, keeps the first 2 messages and the last 20 (threshold 24).
-        Answers are also preserved in the system prompt via _intake_answers, so trimming
-        during intake is a secondary safety net.
+        Keeps the last ~20 messages, prepending a synthetic context note.
+        Ensures tool_use/tool_result pairs are never split at the boundary.
         """
         threshold = 24
         if state and state.phase == SessionPhase.INTAKE and not state.profile_complete:
@@ -778,11 +906,54 @@ class AgentOrchestrator:
 
         if len(self.conversation_history) <= threshold:
             return
-        kept_start = self.conversation_history[:2]
-        kept_end = self.conversation_history[-20:]
-        self.conversation_history = kept_start + [
-            {"role": "user", "content": "[Earlier conversation trimmed to save context. See session state for details.]"}
-        ] + kept_end
+
+        def _has_tool_use(msg: dict) -> bool:
+            c = msg.get("content", "")
+            return (
+                msg.get("role") == "assistant"
+                and isinstance(c, list)
+                and any(isinstance(b, dict) and b.get("type") == "tool_use" for b in c)
+            )
+
+        def _is_tool_result(msg: dict) -> bool:
+            c = msg.get("content", "")
+            return (
+                msg.get("role") == "user"
+                and isinstance(c, list)
+                and any(isinstance(b, dict) and b.get("type") == "tool_result" for b in c)
+            )
+
+        tail_start = len(self.conversation_history) - 20
+
+        # Walk backwards so we don't start on a tool_result (which needs
+        # its preceding assistant tool_use) or right after a tool_use
+        # (the next message must be a tool_result, not our placeholder).
+        while tail_start > 0:
+            msg = self.conversation_history[tail_start]
+            prev = self.conversation_history[tail_start - 1] if tail_start > 0 else None
+            if _is_tool_result(msg):
+                tail_start -= 1
+            elif prev and _has_tool_use(prev):
+                # prev is assistant tool_use and msg is its tool_result pair
+                tail_start -= 1
+            else:
+                break
+
+        if tail_start < 1:
+            return
+
+        kept_end = self.conversation_history[tail_start:]
+
+        # Ensure kept_end starts with a user message (API requirement).
+        # If it starts with assistant, prepend a synthetic user message.
+        bridge: list[dict] = [
+            {"role": "user", "content": "[Earlier conversation trimmed to save context. See session state for details.]"},
+        ]
+        if kept_end and kept_end[0].get("role") == "user":
+            # Need assistant message between our user bridge and the user in kept_end
+            bridge.append({"role": "assistant", "content": "Understood, continuing from current context."})
+
+        self.conversation_history = bridge + kept_end
 
     async def process_message(self, user_message: str):
         """Process a user message and yield response chunks.
@@ -826,7 +997,7 @@ class AgentOrchestrator:
 
             async with self.client.messages.stream(
                 model=settings.model,
-                max_tokens=4096,
+                max_tokens=16384,
                 system=full_system,
                 tools=TOOLS,
                 messages=self.conversation_history,
@@ -913,7 +1084,14 @@ class AgentOrchestrator:
             if text_chunks:
                 yield {"type": "text_done"}
 
-            # If no tool use, we're done
+            # If no tool use, we're done (unless truncated by max_tokens)
+            if response.stop_reason == "max_tokens" and not tool_uses:
+                # Response was truncated — continue loop so model can finish
+                self.conversation_history.append({
+                    "role": "assistant",
+                    "content": response.content,
+                })
+                continue
             if response.stop_reason != "tool_use" or not tool_uses:
                 # Emit any pending UI elements
                 for emission in self._pending_emissions:
@@ -923,6 +1101,9 @@ class AgentOrchestrator:
 
             # Execute tools and build tool results
             tool_results = []
+            self._tools_executed = 0
+            self._iteration_start = time.monotonic()
+            total_tools = len(tool_uses)
             for tu in tool_uses:
                 # Emit status for certain tools
                 if tu["name"] in ("search_trials",):
@@ -931,17 +1112,29 @@ class AgentOrchestrator:
                         "phase": "searching",
                         "message": "Searching ClinicalTrials.gov...",
                     }
-                elif tu["name"] in ("get_trial_details", "get_eligibility_criteria"):
+                elif tu["name"] == "get_trial_details":
+                    nct_id = tu["input"].get("nct_id", "")
+                    self._current_nct_id = nct_id
                     yield {
                         "type": "status",
-                        "phase": "analyzing",
-                        "message": f"Analyzing trial {tu['input'].get('nct_id', '')}...",
+                        "phase": "matching",
+                        "message": f"Analyzing {nct_id}: fetching study details...",
+                    }
+                elif tu["name"] == "get_eligibility_criteria":
+                    nct_id = tu["input"].get("nct_id", "")
+                    title_suffix = f" — {self._current_brief_title}" if self._current_brief_title and self._current_nct_id == nct_id else ""
+                    yield {
+                        "type": "status",
+                        "phase": "matching",
+                        "message": f"Analyzing {nct_id}{title_suffix}: checking eligibility...",
                     }
                 elif tu["name"] in ("get_adverse_events", "get_drug_label"):
+                    drug = tu["input"].get("drug_name", "")
+                    nct_ctx = f" ({self._current_nct_id})" if self._current_nct_id else ""
                     yield {
                         "type": "status",
                         "phase": "fda_lookup",
-                        "message": f"Looking up FDA data for {tu['input'].get('drug_name', '')}...",
+                        "message": f"Looking up FDA data for {drug}{nct_ctx}...",
                     }
                 elif tu["name"] == "save_matched_trials":
                     trial_count = len(tu["input"].get("trials", []))
@@ -963,10 +1156,28 @@ class AgentOrchestrator:
                         "message": f"Looking up location: {tu['input'].get('location_string', '')}...",
                     }
                 elif tu["name"] == "calculate_distance":
+                    # Try to find the facility name from cached locations by matching lat/lon
+                    dist_label = "trial site"
+                    lat2 = tu["input"].get("lat2")
+                    lon2 = tu["input"].get("lon2")
+                    if lat2 is not None and lon2 is not None and self._last_locations:
+                        for loc in self._last_locations:
+                            loc_lat = loc.get("latitude") or loc.get("lat")
+                            loc_lon = loc.get("longitude") or loc.get("lon")
+                            if loc_lat is not None and loc_lon is not None:
+                                if abs(float(loc_lat) - float(lat2)) < 0.01 and abs(float(loc_lon) - float(lon2)) < 0.01:
+                                    city = loc.get("city", "")
+                                    loc_state = loc.get("state", "")
+                                    facility = loc.get("facility", "") or loc.get("name", "")
+                                    if city and loc_state:
+                                        dist_label = f"{city}, {loc_state}"
+                                    elif facility:
+                                        dist_label = facility
+                                    break
                     yield {
                         "type": "status",
                         "phase": "matching",
-                        "message": "Calculating distance to trial site...",
+                        "message": f"Calculating distance to {dist_label}...",
                     }
                 elif tu["name"] == "get_trial_locations":
                     yield {
@@ -1008,6 +1219,8 @@ class AgentOrchestrator:
                     }
                 elif tu["name"] == "emit_status":
                     pass  # emit_status handles itself
+                elif tu["name"] == "emit_partial_filters":
+                    pass  # Lightweight tool, no status needed
                 else:
                     yield {
                         "type": "status",
@@ -1015,7 +1228,11 @@ class AgentOrchestrator:
                         "message": f"Running {tu['name']}...",
                     }
 
-                result = await self._execute_tool(tu["name"], tu["input"])
+                result = await self._execute_tool_with_heartbeat(tu["name"], tu["input"], state)
+                # Drain any heartbeat emissions that were queued
+                while not self._heartbeat_queue.empty():
+                    yield self._heartbeat_queue.get_nowait()
+                self._tools_executed += 1
                 tool_results.append({
                     "type": "tool_result",
                     "tool_use_id": tu["id"],

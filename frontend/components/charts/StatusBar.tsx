@@ -9,7 +9,7 @@ import {
   ResponsiveContainer,
   Cell,
 } from "recharts";
-import { GREY_DISABLED, DISABLED_OPACITY } from "@/lib/chartPalette";
+import { DISABLED_OPACITY } from "@/lib/chartPalette";
 
 const STATUS_COLORS: Record<string, string> = {
   "Completed": "#22c55e",
@@ -31,6 +31,7 @@ const STATUS_COLORS: Record<string, string> = {
 const ACTIVE_STATUS_KEYS = new Set([
   "recruiting",
   "not yet recruiting",
+  "unknown status",
   "active, not recruiting",
   "enrolling by invitation",
   "available",
@@ -108,7 +109,7 @@ export function StatusBar({ data, allData }: Props) {
             {entries.map((entry, i) => (
               <Cell
                 key={i}
-                fill={entry.active ? (STATUS_COLORS[entry.status] || "#94a3b8") : GREY_DISABLED}
+                fill={STATUS_COLORS[entry.status] || "#94a3b8"}
                 fillOpacity={entry.active ? 1 : DISABLED_OPACITY}
                 style={{ transition: "fill 300ms, fill-opacity 300ms" }}
               />

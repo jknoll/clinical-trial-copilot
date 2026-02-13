@@ -14,6 +14,8 @@ interface Trial {
   nearestDistanceMiles: number | null;
   interventions: string[];
   sponsor: string;
+  latitude?: number;
+  longitude?: number;
 }
 
 interface Props {
@@ -79,7 +81,7 @@ export function TrialCarousel({ trials, onSelect }: Props) {
   const canScrollNext = currentIndex < sorted.length - 1;
 
   return (
-    <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
+    <div className="rounded-xl border-2 border-slate-300 bg-white overflow-hidden shadow-md">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 bg-slate-50">
         <div className="flex items-center gap-2">
@@ -89,22 +91,22 @@ export function TrialCarousel({ trials, onSelect }: Props) {
             ({selected.size} selected)
           </span>
         </div>
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1.5">
           <button
             onClick={scrollPrev}
             disabled={!canScrollPrev}
-            className="p-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            className="p-2 rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-100 hover:border-slate-400 disabled:opacity-30 disabled:cursor-not-allowed transition-colors shadow-sm"
             aria-label="Previous trial"
           >
-            <ChevronLeft className="w-4 h-4" />
+            <ChevronLeft className="w-5 h-5" />
           </button>
           <button
             onClick={scrollNext}
             disabled={!canScrollNext}
-            className="p-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            className="p-2 rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-100 hover:border-slate-400 disabled:opacity-30 disabled:cursor-not-allowed transition-colors shadow-sm"
             aria-label="Next trial"
           >
-            <ChevronRight className="w-4 h-4" />
+            <ChevronRight className="w-5 h-5" />
           </button>
         </div>
       </div>
@@ -127,6 +129,8 @@ export function TrialCarousel({ trials, onSelect }: Props) {
               nearestDistanceMiles={trial.nearestDistanceMiles}
               interventions={trial.interventions}
               sponsor={trial.sponsor}
+              latitude={trial.latitude}
+              longitude={trial.longitude}
               selectable={true}
               selected={selected.has(trial.nctId)}
               onToggle={() => toggle(trial.nctId)}

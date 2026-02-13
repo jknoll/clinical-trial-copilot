@@ -64,8 +64,8 @@ export function TrialTable({ filters }: Props) {
           </tr>
         </thead>
         <tbody className="text-xs text-slate-700 divide-y divide-slate-100">
-          {data.trials.map((t) => (
-            <tr key={t.nct_id} className="hover:bg-slate-50 transition-colors">
+          {data.trials.map((t, i) => (
+            <tr key={t.nct_id} className={`hover:bg-slate-50 transition-colors ${i % 2 === 0 ? "bg-slate-50/50" : ""}`}>
               <td className="px-3 py-2 whitespace-nowrap">
                 <a
                   href={`https://clinicaltrials.gov/study/${t.nct_id}`}

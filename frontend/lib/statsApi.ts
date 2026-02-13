@@ -93,6 +93,73 @@ export async function fetchEnrollmentDistribution(filters: FacetedFilters): Prom
   return res.json();
 }
 
+// --- Session-based stats endpoints (AACT database) ---
+
+export interface NameValue {
+  name: string;
+  value: number;
+}
+
+export async function fetchStudyTypes(sessionId: string): Promise<NameValue[]> {
+  const res = await fetch(`${API_URL}/api/stats/study-types?session_id=${sessionId}`);
+  if (!res.ok) throw new Error(`Study types failed: ${res.status}`);
+  return res.json();
+}
+
+export async function fetchGender(sessionId: string): Promise<NameValue[]> {
+  const res = await fetch(`${API_URL}/api/stats/gender?session_id=${sessionId}`);
+  if (!res.ok) throw new Error(`Gender distribution failed: ${res.status}`);
+  return res.json();
+}
+
+export async function fetchAgeGroups(sessionId: string): Promise<NameValue[]> {
+  const res = await fetch(`${API_URL}/api/stats/age-groups?session_id=${sessionId}`);
+  if (!res.ok) throw new Error(`Age groups failed: ${res.status}`);
+  return res.json();
+}
+
+export async function fetchInterventionTypes(sessionId: string): Promise<NameValue[]> {
+  const res = await fetch(`${API_URL}/api/stats/intervention-types?session_id=${sessionId}`);
+  if (!res.ok) throw new Error(`Intervention types failed: ${res.status}`);
+  return res.json();
+}
+
+export async function fetchDuration(sessionId: string): Promise<NameValue[]> {
+  const res = await fetch(`${API_URL}/api/stats/duration?session_id=${sessionId}`);
+  if (!res.ok) throw new Error(`Duration distribution failed: ${res.status}`);
+  return res.json();
+}
+
+export async function fetchStartYears(sessionId: string): Promise<NameValue[]> {
+  const res = await fetch(`${API_URL}/api/stats/start-years?session_id=${sessionId}`);
+  if (!res.ok) throw new Error(`Start years failed: ${res.status}`);
+  return res.json();
+}
+
+export async function fetchFacilityCounts(sessionId: string): Promise<NameValue[]> {
+  const res = await fetch(`${API_URL}/api/stats/facility-counts?session_id=${sessionId}`);
+  if (!res.ok) throw new Error(`Facility counts failed: ${res.status}`);
+  return res.json();
+}
+
+export async function fetchCountries(sessionId: string): Promise<NameValue[]> {
+  const res = await fetch(`${API_URL}/api/stats/countries?session_id=${sessionId}`);
+  if (!res.ok) throw new Error(`Countries failed: ${res.status}`);
+  return res.json();
+}
+
+export async function fetchCompletionRate(sessionId: string): Promise<NameValue[]> {
+  const res = await fetch(`${API_URL}/api/stats/completion-rate?session_id=${sessionId}`);
+  if (!res.ok) throw new Error(`Completion rate failed: ${res.status}`);
+  return res.json();
+}
+
+export async function fetchFunderTypes(sessionId: string): Promise<NameValue[]> {
+  const res = await fetch(`${API_URL}/api/stats/funder-types?session_id=${sessionId}`);
+  if (!res.ok) throw new Error(`Funder types failed: ${res.status}`);
+  return res.json();
+}
+
 export async function fetchMatchedTrials(filters: FacetedFilters, page = 1, perPage = 10): Promise<PaginatedTrials> {
   const res = await fetch(`${API_URL}/api/stats/matched-trials?page=${page}&per_page=${perPage}`, {
     method: "POST",

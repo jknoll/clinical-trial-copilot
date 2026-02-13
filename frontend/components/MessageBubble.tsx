@@ -114,6 +114,8 @@ export function MessageBubble({ message, onWidgetSubmit, onTrialSelection }: Pro
       nearestDistanceMiles: trial.nearest_distance_miles as number | null,
       interventions: (trial.interventions as string[]) || [],
       sponsor: trial.sponsor as string,
+      latitude: trial.latitude as number | undefined,
+      longitude: trial.longitude as number | undefined,
     }));
 
     if (selectable) {

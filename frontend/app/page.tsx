@@ -5,6 +5,7 @@ import { Chat } from "@/components/Chat";
 import { StatsPanel } from "@/components/StatsPanel";
 import { SplitHandle } from "@/components/SplitHandle";
 import { ImportSummary } from "@/components/HealthImport";
+import { SessionQR } from "@/components/SessionQR";
 import { BarChart3, FileText, Shield } from "lucide-react";
 import { FacetedFilters, ActiveFilter, StatsData } from "@/lib/types";
 import { fetchStats, reverseGeocode, forwardGeocode, fetchTopConditions, ConditionCount } from "@/lib/statsApi";
@@ -233,6 +234,7 @@ export default function Home() {
           <h1 className="text-lg font-semibold bg-gradient-to-r from-slate-900 to-slate-700 bg-clip-text text-transparent">Clinical Trial Navigator</h1>
           <p className="text-xs text-slate-500">AI-powered clinical trial guidance</p>
         </div>
+        {sessionId && <SessionQR sessionId={sessionId} backendUrl={API_URL} />}
         <button
           onClick={() => setShowStats((s) => !s)}
           className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${

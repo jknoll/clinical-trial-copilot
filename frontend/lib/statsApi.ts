@@ -1,4 +1,4 @@
-import { FacetedFilters, StatsData } from "./types";
+import { FacetedFilters, StatsData, SponsorCount, EnrollmentBucket, PaginatedTrials } from "./types";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8100";
 
@@ -58,5 +58,53 @@ export async function fetchStats(filters: FacetedFilters): Promise<StatsData> {
     }),
   });
   if (!res.ok) throw new Error(`Stats query failed: ${res.status}`);
+  return res.json();
+}
+
+export async function fetchSponsorDistribution(filters: FacetedFilters): Promise<SponsorCount[]> {
+  const res = await fetch(`${API_URL}/api/stats/sponsors`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      condition: filters.condition || "",
+      age: filters.age,
+      sex: filters.sex || "",
+      statuses: filters.statuses,
+      states: filters.states,
+    }),
+  });
+  if (!res.ok) throw new Error(`Sponsor distribution failed: ${res.status}`);
+  return res.json();
+}
+
+export async function fetchEnrollmentDistribution(filters: FacetedFilters): Promise<EnrollmentBucket[]> {
+  const res = await fetch(`${API_URL}/api/stats/enrollment`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      condition: filters.condition || "",
+      age: filters.age,
+      sex: filters.sex || "",
+      statuses: filters.statuses,
+      states: filters.states,
+    }),
+  });
+  if (!res.ok) throw new Error(`Enrollment distribution failed: ${res.status}`);
+  return res.json();
+}
+
+export async function fetchMatchedTrials(filters: FacetedFilters, page = 1, perPage = 10): Promise<PaginatedTrials> {
+  const res = await fetch(`${API_URL}/api/stats/matched-trials?page=${page}&per_page=${perPage}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      condition: filters.condition || "",
+      age: filters.age,
+      sex: filters.sex || "",
+      statuses: filters.statuses,
+      states: filters.states,
+    }),
+  });
+  if (!res.ok) throw new Error(`Matched trials failed: ${res.status}`);
   return res.json();
 }

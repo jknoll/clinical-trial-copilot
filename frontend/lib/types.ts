@@ -88,3 +88,29 @@ export interface ActiveFilter {
   label: string;
   value: string;
 }
+
+export interface MatchedTrialRow {
+  nct_id: string;
+  brief_title: string;
+  phase: string;
+  overall_status: string;
+  enrollment: number | null;
+}
+
+export interface PaginatedTrials {
+  total: number;
+  page: number;
+  per_page: number;
+  total_pages: number;
+  trials: MatchedTrialRow[];
+}
+
+export interface SponsorCount {
+  sponsor: string;
+  count: number;
+}
+
+export interface EnrollmentBucket {
+  bucket: string;
+  count: number;
+}

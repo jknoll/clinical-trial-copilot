@@ -8,7 +8,7 @@ from typing import Any
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from backend.mcp_servers.aact_queries import get_total_count, get_top_conditions, query_faceted_stats
+from backend.mcp_servers.aact_queries import get_total_count, get_top_conditions, query_faceted_stats, query_sponsor_distribution, query_enrollment_distribution, query_matched_trials
 from backend.mcp_servers.geocoding import reverse_geocode, geocode_location
 
 logger = logging.getLogger(__name__)
@@ -105,4 +105,43 @@ async def top_conditions(limit: int = 15) -> list[dict]:
         raise HTTPException(status_code=503, detail="AACT database not configured")
     except Exception as e:
         logger.error(f"AACT top conditions error: {e}")
+        raise HTTPException(status_code=503, detail="AACT database unavailable")
+
+
+@router.post("/sponsors")
+async def sponsor_distribution(q: StatsQuery) -> list[dict]:
+    """Top 10 sponsors by trial count for current filters."""
+    try:
+        filters = q.model_dump(exclude_none=True)
+        return await query_sponsor_distribution(filters)
+    except RuntimeError:
+        raise HTTPException(status_code=503, detail="AACT database not configured")
+    except Exception as e:
+        logger.error(f"AACT sponsor distribution error: {e}")
+        raise HTTPException(status_code=503, detail="AACT database unavailable")
+
+
+@router.post("/enrollment")
+async def enrollment_distribution(q: StatsQuery) -> list[dict]:
+    """Enrollment size distribution for current filters."""
+    try:
+        filters = q.model_dump(exclude_none=True)
+        return await query_enrollment_distribution(filters)
+    except RuntimeError:
+        raise HTTPException(status_code=503, detail="AACT database not configured")
+    except Exception as e:
+        logger.error(f"AACT enrollment distribution error: {e}")
+        raise HTTPException(status_code=503, detail="AACT database unavailable")
+
+
+@router.post("/matched-trials")
+async def matched_trials(q: StatsQuery, page: int = 1, per_page: int = 10) -> dict:
+    """Paginated list of trials matching current filters."""
+    try:
+        filters = q.model_dump(exclude_none=True)
+        return await query_matched_trials(filters, page, per_page)
+    except RuntimeError:
+        raise HTTPException(status_code=503, detail="AACT database not configured")
+    except Exception as e:
+        logger.error(f"AACT matched trials error: {e}")
         raise HTTPException(status_code=503, detail="AACT database unavailable")

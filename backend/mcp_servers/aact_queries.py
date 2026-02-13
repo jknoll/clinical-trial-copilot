@@ -315,3 +315,160 @@ async def _build_funnel(pool: asyncpg.Pool, filters: dict[str, Any]) -> list[dic
         funnel.append({"stage": f"+ Location ({len(states)} states)", "count": -1})
 
     return funnel
+
+
+async def query_sponsor_distribution(filters: dict[str, Any]) -> list[dict[str, Any]]:
+    """Return top 10 sponsors by trial count, respecting current filters."""
+    pool = await get_pool()
+
+    where_clauses: list[str] = []
+    params: list[Any] = []
+    joins: list[str] = []
+    idx = 1
+
+    condition = filters.get("condition", "").strip()
+    if condition:
+        cond_join, cond_params, idx = _build_condition_clauses(condition, "c", idx)
+        if cond_join:
+            joins.append(cond_join)
+            params.extend(cond_params)
+
+    statuses = filters.get("statuses") or ACTIVE_STATUSES
+    if statuses:
+        lowered = [s.lower() for s in statuses]
+        placeholders = ", ".join(f"${idx + i}" for i in range(len(lowered)))
+        where_clauses.append(f"LOWER(s.overall_status) IN ({placeholders})")
+        params.extend(lowered)
+        idx += len(lowered)
+
+    where_sql = (" WHERE " + " AND ".join(where_clauses)) if where_clauses else ""
+    join_sql = " ".join(joins)
+
+    q = f"""
+        SELECT sp.name AS sponsor, COUNT(DISTINCT s.nct_id) as cnt
+        FROM ctgov.studies s
+        {join_sql}
+        INNER JOIN ctgov.sponsors sp ON sp.nct_id = s.nct_id AND sp.lead_or_collaborator = 'lead'
+        {where_sql}
+        {"AND" if where_clauses else "WHERE"} sp.name IS NOT NULL AND sp.name != ''
+        GROUP BY sp.name
+        ORDER BY cnt DESC
+        LIMIT 10
+    """
+    rows = await pool.fetch(q, *params)
+    return [{"sponsor": row["sponsor"], "count": int(row["cnt"])} for row in rows]
+
+
+async def query_enrollment_distribution(filters: dict[str, Any]) -> list[dict[str, Any]]:
+    """Return enrollment size distribution in buckets."""
+    pool = await get_pool()
+
+    where_clauses: list[str] = []
+    params: list[Any] = []
+    joins: list[str] = []
+    idx = 1
+
+    condition = filters.get("condition", "").strip()
+    if condition:
+        cond_join, cond_params, idx = _build_condition_clauses(condition, "c", idx)
+        if cond_join:
+            joins.append(cond_join)
+            params.extend(cond_params)
+
+    statuses = filters.get("statuses") or ACTIVE_STATUSES
+    if statuses:
+        lowered = [s.lower() for s in statuses]
+        placeholders = ", ".join(f"${idx + i}" for i in range(len(lowered)))
+        where_clauses.append(f"LOWER(s.overall_status) IN ({placeholders})")
+        params.extend(lowered)
+        idx += len(lowered)
+
+    where_sql = (" WHERE " + " AND ".join(where_clauses)) if where_clauses else ""
+    join_sql = " ".join(joins)
+
+    q = f"""
+        SELECT
+            CASE
+                WHEN s.enrollment < 50 THEN '<50'
+                WHEN s.enrollment < 200 THEN '50-200'
+                WHEN s.enrollment < 500 THEN '200-500'
+                WHEN s.enrollment < 1000 THEN '500-1K'
+                ELSE '1K+'
+            END AS bucket,
+            COUNT(DISTINCT s.nct_id) as cnt
+        FROM ctgov.studies s
+        {join_sql}
+        {where_sql}
+        {"AND" if where_clauses else "WHERE"} s.enrollment IS NOT NULL AND s.enrollment > 0
+        GROUP BY bucket
+        ORDER BY MIN(s.enrollment)
+    """
+    rows = await pool.fetch(q, *params)
+    # Ensure consistent ordering
+    bucket_order = ["<50", "50-200", "200-500", "500-1K", "1K+"]
+    result_map = {row["bucket"]: int(row["cnt"]) for row in rows}
+    return [{"bucket": b, "count": result_map.get(b, 0)} for b in bucket_order if result_map.get(b, 0) > 0]
+
+
+async def query_matched_trials(filters: dict[str, Any], page: int = 1, per_page: int = 10) -> dict[str, Any]:
+    """Return paginated list of trials matching current filters."""
+    pool = await get_pool()
+
+    where_clauses: list[str] = []
+    params: list[Any] = []
+    joins: list[str] = []
+    idx = 1
+
+    condition = filters.get("condition", "").strip()
+    if condition:
+        cond_join, cond_params, idx = _build_condition_clauses(condition, "c", idx)
+        if cond_join:
+            joins.append(cond_join)
+            params.extend(cond_params)
+
+    statuses = filters.get("statuses") or ACTIVE_STATUSES
+    if statuses:
+        lowered = [s.lower() for s in statuses]
+        placeholders = ", ".join(f"${idx + i}" for i in range(len(lowered)))
+        where_clauses.append(f"LOWER(s.overall_status) IN ({placeholders})")
+        params.extend(lowered)
+        idx += len(lowered)
+
+    where_sql = (" WHERE " + " AND ".join(where_clauses)) if where_clauses else ""
+    join_sql = " ".join(joins)
+
+    # Get total count
+    count_q = f"SELECT COUNT(DISTINCT s.nct_id) FROM ctgov.studies s {join_sql}{where_sql}"
+    total = int(await pool.fetchval(count_q, *params))
+
+    # Get page of results
+    offset = (page - 1) * per_page
+    q = f"""
+        SELECT DISTINCT s.nct_id, s.brief_title, s.phase, s.overall_status, s.enrollment
+        FROM ctgov.studies s
+        {join_sql}
+        {where_sql}
+        ORDER BY s.nct_id
+        LIMIT ${idx} OFFSET ${idx + 1}
+    """
+    params.extend([per_page, offset])
+    rows = await pool.fetch(q, *params)
+
+    trials = [
+        {
+            "nct_id": row["nct_id"],
+            "brief_title": row["brief_title"],
+            "phase": row["phase"] or "N/A",
+            "overall_status": row["overall_status"],
+            "enrollment": row["enrollment"],
+        }
+        for row in rows
+    ]
+
+    return {
+        "total": total,
+        "page": page,
+        "per_page": per_page,
+        "total_pages": (total + per_page - 1) // per_page,
+        "trials": trials,
+    }

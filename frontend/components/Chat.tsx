@@ -111,6 +111,8 @@ export function Chat({ sessionId, onFiltersChanged, detectedLocation, zeroResult
   const [currentActivity, setCurrentActivity] = useState("");
   const [activityLog, setActivityLog] = useState<Record<string, LogEntry[]>>({});
   const [isProcessingComplete, setIsProcessingComplete] = useState(false);
+  const [healthImportDismissed, setHealthImportDismissed] = useState(false);
+  const [autoImportDemo, setAutoImportDemo] = useState(false);
   const [showSlashMenu, setShowSlashMenu] = useState(false);
   const [slashMenuIndex, setSlashMenuIndex] = useState(0);
   const [filteredCommands, setFilteredCommands] = useState(SLASH_COMMANDS);
@@ -584,6 +586,7 @@ export function Chat({ sessionId, onFiltersChanged, detectedLocation, zeroResult
     if (text.toLowerCase() === "/test" && messageCountRef.current === 0) {
       demoModeRef.current = true;
       _usedDemoAnswers.clear();
+      setAutoImportDemo(true);
       text = "Ewing Sarcoma";
     }
 
@@ -591,6 +594,7 @@ export function Chat({ sessionId, onFiltersChanged, detectedLocation, zeroResult
     if (text.toLowerCase() === "/speedtest" && messageCountRef.current === 0) {
       demoModeRef.current = true;
       _usedDemoAnswers.clear();
+      setAutoImportDemo(true);
       text = "I have relapsed multiple myeloma, diagnosed 2 years ago, currently on second-line treatment with lenalidomide and dexamethasone. 58 year old female in Chicago, IL. Willing to travel up to 200 miles. Open to any phase, treatment trials, comfortable with placebo. Activity level: I can do most daily activities but get tired easily.";
     }
 
@@ -730,8 +734,8 @@ export function Chat({ sessionId, onFiltersChanged, detectedLocation, zeroResult
 
   return (
     <div className="flex flex-col h-full bg-white/40 backdrop-blur-sm">
-      {/* Health import card — shown during intake phase; component handles its own collapse/badge */}
-      {currentPhase === "intake" && (
+      {/* Health import card — shown during intake phase until dismissed */}
+      {currentPhase === "intake" && !healthImportDismissed && (
         <HealthImport sessionId={sessionId} backendUrl={backendUrl} onImported={(summary) => {
           onHealthImported?.(summary);
           if (summary.medications) {
@@ -744,7 +748,7 @@ export function Chat({ sessionId, onFiltersChanged, detectedLocation, zeroResult
               });
             }
           }
-        }} externalSummary={deviceImportSummary} />
+        }} externalSummary={deviceImportSummary} onDismissed={() => setHealthImportDismissed(true)} autoImportDemo={autoImportDemo} />
       )}
 
       {/* Messages area */}

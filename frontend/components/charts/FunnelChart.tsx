@@ -29,22 +29,24 @@ export function FunnelChart({ data }: Props) {
     fill: CHART_PALETTE[i % CHART_PALETTE.length],
   }));
 
+  const chartHeight = data.length * 21 + 28;
+
   return (
-    <div className="h-[180px] w-full">
+    <div style={{ height: chartHeight }} className="w-full">
       <ResponsiveContainer width="100%" height="100%">
-        <BarChart data={formatted} layout="vertical" margin={{ left: 10, right: 30, top: 5, bottom: 5 }}>
+        <BarChart data={formatted} layout="vertical" barCategoryGap="20%" margin={{ left: 4, right: 24, top: 2, bottom: 2 }}>
           <XAxis type="number" hide />
           <YAxis
             type="category"
             dataKey="stage"
-            width={130}
-            tick={{ fontSize: 11, fill: "#64748b" }}
+            width={120}
+            tick={{ fontSize: 10, fill: "#64748b" }}
           />
           <Tooltip
             formatter={(value: number | undefined) => [(value ?? 0).toLocaleString(), "Trials"]}
             contentStyle={{ fontSize: 12 }}
           />
-          <Bar dataKey="count" radius={[0, 4, 4, 0]} animationDuration={600}>
+          <Bar dataKey="count" barSize={14} radius={[0, 4, 4, 0]} animationDuration={600}>
             {formatted.map((d, i) => (
               <Cell
                 key={i}

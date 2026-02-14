@@ -59,9 +59,9 @@ export function TrialCard({
   return (
     <div
       className={clsx(
-        "trial-card relative",
+        "trial-card relative transition-all duration-200",
         selectable && "cursor-pointer",
-        selected ? "ring-2 ring-blue-500 bg-blue-50/50" : ""
+        selected ? "ring-2 ring-blue-500 bg-blue-50 shadow-md" : "hover:shadow-sm"
       )}
       onClick={selectable ? onToggle : undefined}
     >
@@ -104,14 +104,21 @@ export function TrialCard({
               </div>
             </div>
 
-            <span
-              className={clsx(
-                "shrink-0 px-5 py-2.5 rounded-full text-lg font-bold shadow-sm",
-                fitScoreClass(fitScore)
+            <div className="relative group">
+              <span
+                className={clsx(
+                  "shrink-0 px-5 py-2.5 rounded-full text-lg font-bold shadow-sm cursor-help",
+                  fitScoreClass(fitScore)
+                )}
+              >
+                {normalizeFitScore(fitScore)}% fit
+              </span>
+              {fitSummary && (
+                <div className="absolute right-0 top-full mt-1 z-10 w-64 p-2 rounded-lg bg-slate-900 text-white text-xs leading-relaxed shadow-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                  {fitSummary}
+                </div>
               )}
-            >
-              {normalizeFitScore(fitScore)}% fit
-            </span>
+            </div>
           </div>
 
           {fitSummary && (
@@ -150,7 +157,7 @@ export function TrialCard({
               height="100%"
               style={{ border: 0, pointerEvents: "none" }}
               loading="lazy"
-              src={`https://www.openstreetmap.org/export/embed.html?bbox=${longitude - 0.1},${latitude - 0.1},${longitude + 0.1},${latitude + 0.1}&layer=mapnik&marker=${latitude},${longitude}`}
+              src={`https://www.openstreetmap.org/export/embed.html?bbox=${longitude - 0.015},${latitude - 0.01},${longitude + 0.015},${latitude + 0.01}&layer=mapnik&marker=${latitude},${longitude}`}
             />
           </a>
         )}

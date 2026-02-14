@@ -92,6 +92,8 @@ async def generate_pdf(html: str) -> bytes:
             try:
                 page = await browser.new_page()
                 await page.set_content(html, wait_until="networkidle")
+                # Allow extra time for static map images to load
+                await page.wait_for_timeout(3000)
                 pdf_bytes = await page.pdf(
                     format="A4",
                     margin={

@@ -39,7 +39,6 @@ interface HealthImportProps {
   backendUrl?: string;
   onImported?: (summary: ImportSummary) => void;
   externalSummary?: ImportSummary | null;
-  onDismissed?: () => void;
   autoImportDemo?: boolean;
 }
 
@@ -110,10 +109,9 @@ function HealthImportSuccess({ summary, onDone }: { summary: ImportSummary; onDo
         const next = prev + 1;
         if (next >= cappedItems.length) {
           clearInterval(interval);
-          // Auto-collapse after 3s
           if (!doneRef.current) {
             doneRef.current = true;
-            setTimeout(() => onDoneRef.current(), 3000);
+            onDoneRef.current();
           }
         }
         return next;
@@ -151,7 +149,7 @@ function HealthImportSuccess({ summary, onDone }: { summary: ImportSummary; onDo
   );
 }
 
-export function HealthImport({ sessionId, backendUrl, onImported, externalSummary, onDismissed, autoImportDemo }: HealthImportProps) {
+export function HealthImport({ sessionId, backendUrl, onImported, externalSummary, autoImportDemo }: HealthImportProps) {
   const [state, setState] = useState<ImportState>("idle");
   const [expanded, setExpanded] = useState(true);
   const [summary, setSummary] = useState<ImportSummary | null>(null);
@@ -258,21 +256,23 @@ export function HealthImport({ sessionId, backendUrl, onImported, externalSummar
     }
   }, [autoImportDemo, state, handleDemoImport]);
 
-  // Success badge shown when collapsed after import
+  // Collapsed success bar — always visible after import, full-width
   if (state === "success" && !expanded) {
+    const parts: string[] = [];
+    if (summary?.lab_count) parts.push(`${summary.lab_count} labs`);
+    if (summary?.vital_count) parts.push(`${summary.vital_count} vitals`);
+    if (summary?.medication_count) parts.push(`${summary.medication_count} medications`);
+    const summaryText = parts.length > 0 ? parts.join(", ") : "data imported";
     return (
-      <div className="mx-4 mt-3 mb-1">
+      <div className="border-b border-green-200 bg-green-50">
         <button
           onClick={() => setExpanded(true)}
-          className="w-full flex items-center gap-2 px-4 py-1 rounded-xl bg-green-50 border border-green-200 text-green-700 text-xs font-medium hover:bg-green-100 transition-all shadow-sm"
+          className="w-full flex items-center gap-2 px-4 py-2 text-green-700 text-xs font-medium hover:bg-green-100 transition-colors"
         >
-          <CheckCircle2 className="w-4 h-4 shrink-0" />
-          <span className="truncate">
-            {summary?.source_file === "ios-healthkit" ? "iOS: " : "Imported: "}{summary?.lab_count ?? 0} labs, {summary?.vital_count ?? 0} vitals, {summary?.medication_count ?? 0} medications
-            {summary?.estimated_ecog != null && ` | ECOG ${summary.estimated_ecog}`}
-          </span>
-          <img src="/Apple_Health_badge_US-UK_blk_sRGB.svg" alt="Works with Apple Health" className="h-[20px] w-auto shrink-0 ml-auto" />
-          <ChevronDown className="w-4 h-4 shrink-0" />
+          <CheckCircle2 className="w-4 h-4 shrink-0 text-green-600" />
+          <span>Health data imported</span>
+          <span className="text-green-500">{summaryText}</span>
+          <ChevronDown className="w-4 h-4 shrink-0 ml-auto" />
         </button>
       </div>
     );
@@ -310,7 +310,6 @@ export function HealthImport({ sessionId, backendUrl, onImported, externalSummar
             <div className="flex items-center gap-1.5">
               <img src="/Apple_Health_badge_US-UK_blk_sRGB.svg" alt="Works with Apple Health" className="h-[40px] w-auto" />
               <img src="/Download_on_the_App_Store_Badge.svg" alt="Download on the App Store" className="h-[40px] w-auto" />
-              <img src="/Google_Play_Store_badge.svg" alt="Get it on Google Play" className="h-[40px] w-auto" />
             </div>
           <button
             onClick={state === "success" ? () => setExpanded(false) : handleDismiss}
@@ -352,7 +351,7 @@ export function HealthImport({ sessionId, backendUrl, onImported, externalSummar
           )}
 
           {state === "success" && summary && (
-            <HealthImportSuccess summary={summary} onDone={() => { setExpanded(false); onDismissed?.(); }} />
+            <HealthImportSuccess summary={summary} onDone={() => { setExpanded(false); }} />
           )}
 
           {state === "idle" && (

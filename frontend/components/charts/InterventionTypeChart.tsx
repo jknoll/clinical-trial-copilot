@@ -18,7 +18,7 @@ interface Props {
 export function InterventionTypeChart({ data }: Props) {
   if (!data.length) return null;
 
-  const chartHeight = data.length * 24 + 40;
+  const chartHeight = data.length * 21 + 28;
 
   return (
     <div style={{ height: chartHeight }} className="w-full">
@@ -26,7 +26,8 @@ export function InterventionTypeChart({ data }: Props) {
         <BarChart
           data={data}
           layout="vertical"
-          margin={{ left: 10, right: 30, top: 5, bottom: 5 }}
+          barCategoryGap="20%"
+          margin={{ left: 4, right: 24, top: 2, bottom: 2 }}
         >
           <XAxis type="number" hide />
           <YAxis
@@ -40,7 +41,7 @@ export function InterventionTypeChart({ data }: Props) {
             formatter={(value: number | undefined) => [(value ?? 0).toLocaleString(), "Trials"]}
             contentStyle={{ fontSize: 12 }}
           />
-          <Bar dataKey="value" radius={[0, 4, 4, 0]} animationDuration={600}>
+          <Bar dataKey="value" barSize={14} radius={[0, 4, 4, 0]} animationDuration={600}>
             {data.map((_, i) => (
               <Cell key={i} fill={CHART_PALETTE[i % CHART_PALETTE.length]} />
             ))}

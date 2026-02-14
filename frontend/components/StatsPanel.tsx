@@ -12,7 +12,6 @@ import {
   fetchDuration,
   fetchStartYears,
   fetchFacilityCounts,
-  fetchCountries,
   fetchCompletionRate,
   fetchFunderTypes,
   NameValue,
@@ -31,11 +30,30 @@ import { InterventionTypeChart } from "./charts/InterventionTypeChart";
 import { DurationChart } from "./charts/DurationChart";
 import { StartYearChart } from "./charts/StartYearChart";
 import { FacilityCountChart } from "./charts/FacilityCountChart";
-import { CountryChart } from "./charts/CountryChart";
 import { CompletionRateChart } from "./charts/CompletionRateChart";
 import { FunderTypeChart } from "./charts/FunderTypeChart";
 import { FunnelChart } from "./charts/FunnelChart";
-import { Database, X, Filter, Activity, Building2, Users, List, FlaskConical, Globe, Calendar, Clock, MapPin, CheckCircle, Wallet, Beaker, UserCheck, TrendingDown } from "lucide-react";
+import { Database, X, Filter, Activity, Building2, Users, List, FlaskConical, Calendar, Clock, MapPin, CheckCircle, Wallet, Beaker, UserCheck, TrendingDown, ChevronDown } from "lucide-react";
+import clsx from "clsx";
+
+function filterColor(key: string): { bg: string; text: string; label: string } {
+  switch (key) {
+    case "condition":
+      return { bg: "bg-purple-50", text: "text-purple-700", label: "text-purple-400" };
+    case "age":
+      return { bg: "bg-amber-50", text: "text-amber-700", label: "text-amber-400" };
+    case "sex":
+      return { bg: "bg-pink-50", text: "text-pink-700", label: "text-pink-400" };
+    case "location":
+      return { bg: "bg-emerald-50", text: "text-emerald-700", label: "text-emerald-400" };
+    case "distance":
+      return { bg: "bg-teal-50", text: "text-teal-700", label: "text-teal-400" };
+    case "statuses":
+      return { bg: "bg-blue-50", text: "text-blue-700", label: "text-blue-400" };
+    default:
+      return { bg: "bg-slate-50", text: "text-slate-700", label: "text-slate-400" };
+  }
+}
 
 interface Props {
   stats: StatsData | null;
@@ -63,7 +81,6 @@ export function StatsPanel({ stats, activeFilters, loading, error, userLocation,
   const [duration, setDuration] = useState<NameValue[]>([]);
   const [startYears, setStartYears] = useState<NameValue[]>([]);
   const [facilityCounts, setFacilityCounts] = useState<NameValue[]>([]);
-  const [countries, setCountries] = useState<NameValue[]>([]);
   const [completionRate, setCompletionRate] = useState<NameValue[]>([]);
   const [funderTypes, setFunderTypes] = useState<NameValue[]>([]);
 
@@ -114,10 +131,6 @@ export function StatsPanel({ stats, activeFilters, loading, error, userLocation,
     fetchFacilityCounts(sessionId)
       .then((data) => { if (!ignore) setFacilityCounts(data); })
       .catch(() => { if (!ignore) setFacilityCounts([]); });
-
-    fetchCountries(sessionId)
-      .then((data) => { if (!ignore) setCountries(data); })
-      .catch(() => { if (!ignore) setCountries([]); });
 
     fetchCompletionRate(sessionId)
       .then((data) => { if (!ignore) setCompletionRate(data); })
@@ -202,37 +215,47 @@ export function StatsPanel({ stats, activeFilters, loading, error, userLocation,
               Active Filters
             </div>
             <div className="flex flex-wrap gap-1.5">
-              {activeFilters.map((f) => (
-                <span
-                  key={f.key}
-                  className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-50 text-blue-700 rounded-full text-xs"
-                >
-                  <span className="text-blue-400 font-medium">{f.label}:</span>
-                  {f.value}
-                </span>
-              ))}
+              {activeFilters.map((f) => {
+                const colors = filterColor(f.key);
+                return (
+                  <span
+                    key={f.key}
+                    className={`inline-flex items-center gap-1 px-2 py-0.5 ${colors.bg} ${colors.text} rounded-full text-xs`}
+                  >
+                    <span className={`${colors.label} font-medium`}>{f.label}:</span>
+                    {f.value}
+                  </span>
+                );
+              })}
             </div>
           </div>
         )}
 
-        {/* Search Funnel */}
-        {stats.funnel && stats.funnel.length > 0 && (
-          <Section title="Search Funnel" icon={<TrendingDown className="w-3.5 h-3.5" />}>
-            <FunnelChart data={stats.funnel} />
-          </Section>
-        )}
-
         <div className={loading ? "opacity-60 transition-opacity duration-300" : ""}>
-        {/* Geographic map */}
+        {/* 1. Trial Locations (map) */}
         {Object.keys(stats.geo_distribution).length > 0 && (
-          <Section title="Trial Locations">
+          <Section title="Trial Locations" defaultExpanded>
             <StatsMap data={stats.geo_distribution} stateData={stats.geo_distribution_states} userLocation={userLocation} flyTo={mapFlyTo} travelDistance={travelDistance} />
           </Section>
         )}
 
-        {/* Top conditions */}
+        {/* 2. Matching Trials (table) */}
+        {filters && (
+          <Section title="Matching Trials" icon={<List className="w-3.5 h-3.5" />} defaultExpanded>
+            <TrialTable filters={filters} />
+          </Section>
+        )}
+
+        {/* 3. Search Funnel */}
+        {stats.funnel && stats.funnel.length > 0 && (
+          <Section title="Search Funnel" icon={<TrendingDown className="w-3.5 h-3.5" />} defaultExpanded>
+            <FunnelChart data={stats.funnel} />
+          </Section>
+        )}
+
+        {/* 4. Top Conditions */}
         {topConditions && topConditions.length > 0 && (
-          <Section title="Top Conditions" icon={<Activity className="w-3.5 h-3.5" />}>
+          <Section title="Top Conditions" icon={<Activity className="w-3.5 h-3.5" />} defaultExpanded>
             <DiseaseBar
               data={(() => {
                 if (!activeCondition || !stats) return topConditions;
@@ -249,105 +272,91 @@ export function StatsPanel({ stats, activeFilters, loading, error, userLocation,
           </Section>
         )}
 
-        {/* Status breakdown */}
+        {/* 5. Status Breakdown */}
         {Object.keys(stats.status_distribution).length > 0 && (
           <Section title="Status Breakdown">
             <StatusBar data={stats.status_distribution} allData={stats.all_status_distribution} />
           </Section>
         )}
 
-        {/* Phase distribution */}
+        {/* 6. Phase Distribution */}
         {Object.keys(stats.phase_distribution).length > 0 && (
           <Section title="Phase Distribution">
             <PhaseDonut data={stats.phase_distribution} />
           </Section>
         )}
 
-        {/* Trial Table */}
-        {filters && (
-          <Section title="Matching Trials" icon={<List className="w-3.5 h-3.5" />}>
-            <TrialTable filters={filters} />
-          </Section>
-        )}
-
-        {/* Top Sponsors */}
+        {/* 7. Top Sponsors */}
         {sponsors.length > 0 && (
           <Section title="Top Sponsors" icon={<Building2 className="w-3.5 h-3.5" />}>
             <SponsorBar data={sponsors} />
           </Section>
         )}
 
-        {/* Enrollment Distribution */}
+        {/* 8. Enrollment Size */}
         {enrollment.length > 0 && (
           <Section title="Enrollment Size" icon={<Users className="w-3.5 h-3.5" />}>
             <EnrollmentHistogram data={enrollment} />
           </Section>
         )}
 
-        {/* Study Types */}
+        {/* 9. Study Types */}
         {studyTypes.length > 0 && (
           <Section title="Study Types" icon={<Beaker className="w-3.5 h-3.5" />}>
             <StudyTypeChart data={studyTypes} />
           </Section>
         )}
 
-        {/* Intervention Types */}
+        {/* 10. Intervention Types */}
         {interventionTypes.length > 0 && (
           <Section title="Intervention Types" icon={<FlaskConical className="w-3.5 h-3.5" />}>
             <InterventionTypeChart data={interventionTypes} />
           </Section>
         )}
 
-        {/* Gender Eligibility */}
+        {/* 11. Gender Eligibility */}
         {gender.length > 0 && (
           <Section title="Gender Eligibility" icon={<UserCheck className="w-3.5 h-3.5" />}>
             <GenderChart data={gender} />
           </Section>
         )}
 
-        {/* Age Groups */}
+        {/* 12. Age Groups */}
         {ageGroups.length > 0 && (
           <Section title="Age Groups" icon={<Users className="w-3.5 h-3.5" />}>
             <AgeGroupChart data={ageGroups} />
           </Section>
         )}
 
-        {/* Funder Types */}
+        {/* 13. Funder Types */}
         {funderTypes.length > 0 && (
           <Section title="Funder Types" icon={<Wallet className="w-3.5 h-3.5" />}>
             <FunderTypeChart data={funderTypes} />
           </Section>
         )}
 
-        {/* Countries */}
-        {countries.length > 0 && (
-          <Section title="Countries" icon={<Globe className="w-3.5 h-3.5" />}>
-            <CountryChart data={countries} />
-          </Section>
-        )}
-
-        {/* Start Years */}
+        {/* 14. Start Years */}
         {startYears.length > 0 && (
           <Section title="Start Years" icon={<Calendar className="w-3.5 h-3.5" />}>
             <StartYearChart data={startYears} />
           </Section>
         )}
 
-        {/* Study Duration */}
+        {/* 16. Study Duration */}
         {duration.length > 0 && (
           <Section title="Study Duration" icon={<Clock className="w-3.5 h-3.5" />}>
             <DurationChart data={duration} />
           </Section>
         )}
 
-        {/* Facility Counts */}
+        {/* 17. Facility Counts */}
         {facilityCounts.length > 0 && (
           <Section title="Facility Counts" icon={<MapPin className="w-3.5 h-3.5" />}>
             <FacilityCountChart data={facilityCounts} />
           </Section>
         )}
 
-        {/* Completion Rate */}
+        {/* 18. Completion Rate */}
         {completionRate.length > 0 && (
           <Section title="Completion Rate" icon={<CheckCircle className="w-3.5 h-3.5" />}>
             <CompletionRateChart data={completionRate} />
@@ -364,18 +373,29 @@ function Section({
   title,
   icon,
   children,
+  defaultExpanded = false,
 }: {
   title: string;
   icon?: React.ReactNode;
   children: React.ReactNode;
+  defaultExpanded?: boolean;
 }) {
+  const [expanded, setExpanded] = useState(defaultExpanded);
   return (
     <div>
-      <div className="flex items-center gap-1.5 text-xs font-medium text-slate-500 mb-2">
+      <button
+        onClick={() => setExpanded((v) => !v)}
+        className="flex items-center gap-1.5 text-xs font-medium text-slate-500 mb-2 w-full hover:text-slate-700 transition-colors"
+      >
         {icon}
-        {title}
-      </div>
-      <div className="bg-white rounded-lg border border-slate-200 shadow-sm p-2">{children}</div>
+        <span className="flex-1 text-left">{title}</span>
+        <ChevronDown className={clsx("w-3.5 h-3.5 transition-transform", expanded && "rotate-180")} />
+      </button>
+      {expanded && (
+        <div className="bg-white rounded-lg border border-slate-200 shadow-sm p-2">
+          {children}
+        </div>
+      )}
     </div>
   );
 }

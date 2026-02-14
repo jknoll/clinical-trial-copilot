@@ -29,29 +29,34 @@ const EMPTY_FILTERS: FacetedFilters = {
   distance_miles: null,
 };
 
-const TAGLINES = ["571,118 Trials.", "One that fits.", "Every patient deserves a match."];
+const TAGLINES_STATIC = ["One that fits.", "Every patient deserves a match."];
 
-function TaglineCycler() {
+function TaglineCycler({ total }: { total: number }) {
   const [index, setIndex] = useState(0);
   const [visible, setVisible] = useState(true);
+  const taglineCount = TAGLINES_STATIC.length + 1; // +1 for the animated count tagline
 
   useEffect(() => {
     const cycle = setInterval(() => {
       setVisible(false);
       setTimeout(() => {
-        setIndex((prev) => (prev + 1) % TAGLINES.length);
+        setIndex((prev) => (prev + 1) % taglineCount);
         setVisible(true);
       }, 1800);
     }, 7800);
     return () => clearInterval(cycle);
-  }, []);
+  }, [taglineCount]);
 
   return (
     <span
       style={{ transition: "opacity 1.8s ease-in-out", opacity: visible ? 1 : 0 }}
       className="inline-block"
     >
-      {TAGLINES[index]}
+      {index === 0 ? (
+        <><AnimatedCount target={total || 571118} /> Trials.</>
+      ) : (
+        TAGLINES_STATIC[index - 1]
+      )}
     </span>
   );
 }
@@ -399,7 +404,7 @@ export default function Home() {
             <div className="h-1 bg-gradient-to-r from-blue-600 to-indigo-600" />
             <div className="p-8 text-center">
             <img src="/logo.png" alt="Clinical Trial Compass" className="w-72 h-72 mx-auto -mt-16 -mb-12 object-contain mix-blend-multiply" />
-            <h2 className="text-xl font-semibold text-slate-900 mb-3"><TaglineCycler /></h2>
+            <h2 className="text-xl font-semibold text-slate-900 mb-3"><TaglineCycler total={stats?.total ?? 0} /></h2>
             <p className="text-sm text-slate-700 mb-4 leading-relaxed">
               Clinical Trial Compass helps you find relevant clinical trials through a guided
               conversation. We&apos;ll narrow down trials that match your condition, location,

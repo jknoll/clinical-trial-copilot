@@ -23,6 +23,7 @@ interface Props {
   isProcessing: boolean;
   activityLog?: Record<string, LogEntry[]>;
   isComplete?: boolean;
+  onPhaseClick?: (phaseKey: string) => void;
 }
 
 const NCT_REGEX = /NCT\d{8}/g;
@@ -93,7 +94,7 @@ function renderLogMessage(message: string): React.ReactNode {
   return message;
 }
 
-export function AgentActivity({ currentPhase, activity, isProcessing, activityLog, isComplete }: Props) {
+export function AgentActivity({ currentPhase, activity, isProcessing, activityLog, isComplete, onPhaseClick }: Props) {
   const logEndRef = useRef<HTMLDivElement>(null);
 
   // Auto-scroll to latest log entry
@@ -143,22 +144,29 @@ export function AgentActivity({ currentPhase, activity, isProcessing, activityLo
                   }`}
                 />
               )}
-              <div
-                className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium transition-all ${
-                  isActive
-                    ? "bg-blue-100 text-blue-700 ring-1 ring-blue-300 phase-pulse"
-                    : isCompleted
-                    ? "bg-green-50 text-green-600"
-                    : "bg-slate-100 text-slate-400"
-                }`}
-              >
-                {isCompleted ? (
-                  <CheckCircle2 className="w-3.5 h-3.5" />
-                ) : (
-                  <PhaseIcon className="w-3.5 h-3.5" />
-                )}
-                {phase.label}
-              </div>
+              {(() => {
+                const isClickable = (isActive || isCompleted) && onPhaseClick;
+                const Tag = isClickable ? "button" : "div";
+                return (
+                  <Tag
+                    {...(isClickable ? { onClick: () => onPhaseClick(phase.key) } : {})}
+                    className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium transition-all ${
+                      isActive
+                        ? "bg-blue-100 text-blue-700 ring-1 ring-blue-300 phase-pulse"
+                        : isCompleted
+                        ? "bg-green-50 text-green-600"
+                        : "bg-slate-100 text-slate-400"
+                    } ${isClickable ? "cursor-pointer hover:ring-1 hover:ring-blue-300" : ""}`}
+                  >
+                    {isCompleted ? (
+                      <CheckCircle2 className="w-3.5 h-3.5" />
+                    ) : (
+                      <PhaseIcon className="w-3.5 h-3.5" />
+                    )}
+                    {phase.label}
+                  </Tag>
+                );
+              })()}
             </div>
           );
         })}

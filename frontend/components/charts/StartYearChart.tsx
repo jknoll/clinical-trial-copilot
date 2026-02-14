@@ -17,7 +17,7 @@ export function StartYearChart({ data }: Props) {
   if (!data.length) return null;
 
   return (
-    <div className="h-[180px] w-full">
+    <div className="h-[185px] w-full">
       <ResponsiveContainer width="100%" height="100%">
         <BarChart
           data={data}

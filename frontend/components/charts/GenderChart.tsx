@@ -18,7 +18,7 @@ interface Props {
 export function GenderChart({ data }: Props) {
   if (!data.length) return null;
 
-  const chartHeight = data.length * 28 + 40;
+  const chartHeight = data.length * 21 + 28;
 
   return (
     <div style={{ height: chartHeight }} className="w-full">
@@ -26,7 +26,8 @@ export function GenderChart({ data }: Props) {
         <BarChart
           data={data}
           layout="vertical"
-          margin={{ left: 10, right: 30, top: 5, bottom: 5 }}
+          barCategoryGap="20%"
+          margin={{ left: 4, right: 24, top: 2, bottom: 2 }}
         >
           <XAxis type="number" hide />
           <YAxis
@@ -34,13 +35,13 @@ export function GenderChart({ data }: Props) {
             dataKey="name"
             width={80}
             interval={0}
-            tick={{ fontSize: 11, fill: "#64748b" }}
+            tick={{ fontSize: 10, fill: "#64748b" }}
           />
           <Tooltip
             formatter={(value: number | undefined) => [(value ?? 0).toLocaleString(), "Trials"]}
             contentStyle={{ fontSize: 12 }}
           />
-          <Bar dataKey="value" radius={[0, 4, 4, 0]} animationDuration={600}>
+          <Bar dataKey="value" barSize={14} radius={[0, 4, 4, 0]} animationDuration={600}>
             {data.map((_, i) => (
               <Cell key={i} fill={CHART_PALETTE[i % CHART_PALETTE.length]} />
             ))}

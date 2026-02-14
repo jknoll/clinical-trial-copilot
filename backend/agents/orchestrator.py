@@ -22,6 +22,12 @@ logger = logging.getLogger(__name__)
 PROMPTS_DIR = Path(__file__).parent / "prompts"
 SKILLS_DIR = Path(__file__).parent / "skills"
 
+MODEL_CONTEXT_WINDOWS = {
+    "claude-opus-4-6": 200_000,
+    "claude-sonnet-4-5-20250929": 200_000,
+    "claude-haiku-4-5-20251001": 200_000,
+}
+
 
 def _parse_trial_detail(raw: dict) -> dict:
     """Extract essential fields from a full study record to keep context small."""
@@ -462,6 +468,8 @@ TOOLS: list[dict[str, Any]] = [
                                     "distance_miles": {"type": "number"},
                                     "contact_phone": {"type": "string"},
                                     "contact_email": {"type": "string"},
+                                    "latitude": {"type": "number", "description": "Latitude of the facility."},
+                                    "longitude": {"type": "number", "description": "Longitude of the facility."},
                                 },
                             },
                             "adverse_events": {
@@ -558,6 +566,8 @@ class AgentOrchestrator:
         self._heartbeat_queue: asyncio.Queue[dict[str, Any]] = asyncio.Queue()
         self._iteration_start: float = 0.0
         self._tools_executed: int = 0
+        # Turn counter for context usage tracking
+        self._turn_count: int = 0
 
     def _extract_intake_answer(self, user_message: str) -> None:
         """Parse structured widget responses and free-text messages during intake.
@@ -1059,6 +1069,18 @@ class AgentOrchestrator:
 
                 # Get the final message for stop_reason
                 response = await stream.get_final_message()
+
+            # Track turn count and emit context usage info
+            self._turn_count += 1
+            if hasattr(response, "usage") and response.usage:
+                yield {
+                    "type": "context_update",
+                    "input_tokens": response.usage.input_tokens,
+                    "output_tokens": response.usage.output_tokens,
+                    "model": settings.model,
+                    "context_window": MODEL_CONTEXT_WINDOWS.get(settings.model, 200_000),
+                    "turn": self._turn_count,
+                }
 
             # Build the assistant message content for history
             assistant_content = []

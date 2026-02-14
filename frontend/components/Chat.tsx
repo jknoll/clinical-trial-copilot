@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Send } from "lucide-react";
+import { Send, X } from "lucide-react";
+import clsx from "clsx";
 import { WSClient } from "@/lib/websocket";
 import { ChatMessage } from "@/lib/types";
 import { MessageBubble } from "./MessageBubble";
@@ -16,6 +17,8 @@ const SLASH_COMMANDS = [
   { command: "/test", label: "/test", description: "Run Ewing Sarcoma demo flow" },
   { command: "/speedtest", label: "/speedtest", description: "Run Multiple Myeloma speed test" },
   { command: "/query", label: "/query", description: "Open SQL query editor" },
+  { command: "/context", label: "/context", description: "Show model & context usage" },
+  { command: "/health-import", label: "/health-import", description: "Import demo health data" },
 ];
 
 interface DetectedLocation {
@@ -110,14 +113,23 @@ export function Chat({ sessionId, onFiltersChanged, detectedLocation, zeroResult
   const demoContinuationSentRef = useRef(false);
   const demoFallbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [currentPhase, setCurrentPhase] = useState("");
+  const currentPhaseRef = useRef("");
   const [deviceImportSummary, setDeviceImportSummary] = useState<ImportSummary | null>(null);
   const [knownDrugs, setKnownDrugs] = useState<string[]>([]);
   const [currentActivity, setCurrentActivity] = useState("");
   const [activityLog, setActivityLog] = useState<Record<string, LogEntry[]>>({});
   const [isProcessingComplete, setIsProcessingComplete] = useState(false);
-  const [healthImportDismissed, setHealthImportDismissed] = useState(false);
+  const [healthImportVisible, setHealthImportVisible] = useState(false);
   const [autoImportDemo, setAutoImportDemo] = useState(false);
   const [showQueryEditor, setShowQueryEditor] = useState(false);
+  const [showContextPanel, setShowContextPanel] = useState(false);
+  const [contextInfo, setContextInfo] = useState<{
+    model: string;
+    inputTokens: number;
+    outputTokens: number;
+    contextWindow: number;
+    turn: number;
+  } | null>(null);
   const [showSlashMenu, setShowSlashMenu] = useState(false);
   const [slashMenuIndex, setSlashMenuIndex] = useState(0);
   const [filteredCommands, setFilteredCommands] = useState(SLASH_COMMANDS);
@@ -125,6 +137,12 @@ export function Chat({ sessionId, onFiltersChanged, detectedLocation, zeroResult
   const handleTrialSelectionRef = useRef<((trialIds: string[]) => void) | null>(null);
   const onReportReadyRef = useRef(onReportReady);
   onReportReadyRef.current = onReportReady;
+
+  const msgCounterRef = useRef(0);
+  const nextMsgId = useCallback((prefix: string) => {
+    msgCounterRef.current += 1;
+    return `${prefix}_${Date.now()}_${msgCounterRef.current}`;
+  }, []);
 
   const isNearBottomRef = useRef(true);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
@@ -138,6 +156,8 @@ export function Chat({ sessionId, onFiltersChanged, detectedLocation, zeroResult
   useEffect(() => {
     scrollToBottom();
   }, [messages, isTyping, scrollToBottom]);
+
+  useEffect(() => { currentPhaseRef.current = currentPhase; }, [currentPhase]);
 
   const handleMessage = useCallback((data: Record<string, unknown>) => {
     const type = data.type as string;
@@ -158,7 +178,7 @@ export function Chat({ sessionId, onFiltersChanged, detectedLocation, zeroResult
 
       // Create or update the pending assistant message
       if (!pendingIdRef.current) {
-        pendingIdRef.current = `msg_${Date.now()}`;
+        pendingIdRef.current = nextMsgId("msg");
       }
 
       const msgId = pendingIdRef.current;
@@ -171,6 +191,7 @@ export function Chat({ sessionId, onFiltersChanged, detectedLocation, zeroResult
           role: "assistant",
           content: text,
           messageType: "text",
+          metadata: { phase: currentPhaseRef.current },
           timestamp: Date.now(),
         };
         if (existing >= 0) {
@@ -227,7 +248,7 @@ export function Chat({ sessionId, onFiltersChanged, detectedLocation, zeroResult
               if (answer) {
                 demoContinuationSentRef.current = true;
                 const userMsg: ChatMessage = {
-                  id: `user_${Date.now()}`,
+                  id: nextMsgId("user"),
                   role: "user",
                   content: answer,
                   messageType: "text",
@@ -256,7 +277,7 @@ export function Chat({ sessionId, onFiltersChanged, detectedLocation, zeroResult
             }
             demoContinuationSentRef.current = true;
             const userMsg: ChatMessage = {
-              id: `user_${Date.now()}`,
+              id: nextMsgId("user"),
               role: "user",
               content: "Please continue",
               messageType: "text",
@@ -272,11 +293,11 @@ export function Chat({ sessionId, onFiltersChanged, detectedLocation, zeroResult
     } else if (type === "widget") {
       setIsTyping(false);
       const msg: ChatMessage = {
-        id: `widget_${Date.now()}`,
+        id: nextMsgId("widget"),
         role: "assistant",
         content: "",
         messageType: "widget",
-        metadata: data as Record<string, unknown>,
+        metadata: { ...(data as Record<string, unknown>), phase: currentPhaseRef.current },
         timestamp: Date.now(),
       };
       setMessages((prev) => [...prev, msg]);
@@ -298,11 +319,11 @@ export function Chat({ sessionId, onFiltersChanged, detectedLocation, zeroResult
     } else if (type === "trial_cards") {
       setIsTyping(false);
       const msg: ChatMessage = {
-        id: `trials_${Date.now()}`,
+        id: nextMsgId("trials"),
         role: "assistant",
         content: "",
         messageType: "trial_cards",
-        metadata: data as Record<string, unknown>,
+        metadata: { ...(data as Record<string, unknown>), phase: currentPhaseRef.current },
         timestamp: Date.now(),
       };
       setMessages((prev) => [...prev, msg]);
@@ -414,11 +435,11 @@ export function Chat({ sessionId, onFiltersChanged, detectedLocation, zeroResult
     } else if (type === "report_ready") {
       setIsTyping(false);
       const msg: ChatMessage = {
-        id: `report_${Date.now()}`,
+        id: nextMsgId("report"),
         role: "assistant",
         content: "",
         messageType: "report_ready",
-        metadata: data as Record<string, unknown>,
+        metadata: { ...(data as Record<string, unknown>), phase: currentPhaseRef.current },
         timestamp: Date.now(),
       };
       setMessages((prev) => [...prev, msg]);
@@ -459,6 +480,14 @@ export function Chat({ sessionId, onFiltersChanged, detectedLocation, zeroResult
           });
         }
       }
+    } else if (type === "context_update") {
+      setContextInfo({
+        model: data.model as string,
+        inputTokens: data.input_tokens as number,
+        outputTokens: data.output_tokens as number,
+        contextWindow: data.context_window as number,
+        turn: data.turn as number,
+      });
     } else if (type === "done") {
       setIsTyping(false);
       setIsServerProcessing(false);
@@ -489,7 +518,7 @@ export function Chat({ sessionId, onFiltersChanged, detectedLocation, zeroResult
           demoContinuationSentRef.current = true;
           const continueMsg = "Please continue with the next step";
           const userMsg: ChatMessage = {
-            id: `user_${Date.now()}`,
+            id: nextMsgId("user"),
             role: "user",
             content: continueMsg,
             messageType: "text",
@@ -505,7 +534,7 @@ export function Chat({ sessionId, onFiltersChanged, detectedLocation, zeroResult
       setIsTyping(false);
       setIsServerProcessing(false);
       const msg: ChatMessage = {
-        id: `error_${Date.now()}`,
+        id: nextMsgId("error"),
         role: "system",
         content: data.content as string || "An error occurred",
         messageType: "text",
@@ -513,7 +542,7 @@ export function Chat({ sessionId, onFiltersChanged, detectedLocation, zeroResult
       };
       setMessages((prev) => [...prev, msg]);
     }
-  }, [onHealthImported]);
+  }, [onHealthImported, nextMsgId]);
 
   useEffect(() => {
     // Clear any stale messages from previous connections
@@ -551,7 +580,7 @@ export function Chat({ sessionId, onFiltersChanged, detectedLocation, zeroResult
         // Send "Ewing Sarcoma" directly via websocket
         const text = "Ewing Sarcoma";
         const msg: ChatMessage = {
-          id: `user_${Date.now()}`,
+          id: nextMsgId("user"),
           role: "user",
           content: text,
           messageType: "text",
@@ -581,7 +610,7 @@ export function Chat({ sessionId, onFiltersChanged, detectedLocation, zeroResult
         messageCountRef.current++;
       };
     }
-  }, [demoRef, detectedLocation, onFiltersChanged]);
+  }, [demoRef, detectedLocation, onFiltersChanged, nextMsgId]);
 
   const sendMessage = useCallback(() => {
     let text = input.trim();
@@ -592,6 +621,22 @@ export function Chat({ sessionId, onFiltersChanged, detectedLocation, zeroResult
       setInput("");
       setShowSlashMenu(false);
       setShowQueryEditor(true);
+      return;
+    }
+
+    // /context: toggle context usage panel
+    if (text.toLowerCase() === "/context") {
+      setInput("");
+      setShowSlashMenu(false);
+      setShowContextPanel(prev => !prev);
+      return;
+    }
+
+    // /health-import: trigger demo health data import
+    if (text.toLowerCase() === "/health-import") {
+      setInput("");
+      setShowSlashMenu(false);
+      setAutoImportDemo(true);
       return;
     }
 
@@ -612,7 +657,7 @@ export function Chat({ sessionId, onFiltersChanged, detectedLocation, zeroResult
     }
 
     const msg: ChatMessage = {
-      id: `user_${Date.now()}`,
+      id: nextMsgId("user"),
       role: "user",
       content: text,
       messageType: "text",
@@ -644,14 +689,14 @@ export function Chat({ sessionId, onFiltersChanged, detectedLocation, zeroResult
     if (onFiltersChanged && messageCountRef.current === 1) {
       onFiltersChanged({ condition: text }, [{ key: "condition", label: "Condition", value: text }]);
     }
-  }, [input, onFiltersChanged, detectedLocation]);
+  }, [input, onFiltersChanged, detectedLocation, nextMsgId]);
 
   const handleWidgetSubmit = useCallback(
     (questionId: string, selections: string[], question?: string) => {
       if (!wsRef.current) return;
       // Show the selection as a user message
       const msg: ChatMessage = {
-        id: `user_${Date.now()}`,
+        id: nextMsgId("user"),
         role: "user",
         content: selections.join(", "),
         messageType: "text",
@@ -720,7 +765,7 @@ export function Chat({ sessionId, onFiltersChanged, detectedLocation, zeroResult
         }
       }
     },
-    [onFiltersChanged, onLocationConfirmed, onLocationOverride, detectedLocation]
+    [onFiltersChanged, onLocationConfirmed, onLocationOverride, detectedLocation, nextMsgId]
   );
 
   handleWidgetSubmitRef.current = handleWidgetSubmit;
@@ -729,7 +774,7 @@ export function Chat({ sessionId, onFiltersChanged, detectedLocation, zeroResult
     (trialIds: string[]) => {
       if (!wsRef.current) return;
       const msg: ChatMessage = {
-        id: `user_${Date.now()}`,
+        id: nextMsgId("user"),
         role: "user",
         content: `Selected ${trialIds.length} trials for detailed analysis`,
         messageType: "text",
@@ -740,16 +785,27 @@ export function Chat({ sessionId, onFiltersChanged, detectedLocation, zeroResult
       setIsServerProcessing(true);
       wsRef.current.send({ type: "trial_selection", trialIds });
     },
-    []
+    [nextMsgId]
   );
 
   handleTrialSelectionRef.current = handleTrialSelection;
 
+  const handlePhaseClick = useCallback((phaseKey: string) => {
+    const container = messagesContainerRef.current;
+    if (!container) return;
+    const el = container.querySelector(`[data-phase="${phaseKey}"]`);
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "start" });
+      isNearBottomRef.current = false;
+    }
+  }, []);
+
   return (
-    <div className="flex flex-col h-full bg-white/40 backdrop-blur-sm">
-      {/* Health import card — shown during intake phase until dismissed */}
-      {currentPhase === "intake" && !healthImportDismissed && (
+    <div className="flex flex-col h-full bg-white/40 backdrop-blur-sm relative">
+      {/* Health import card — shown during intake or always after import */}
+      {(currentPhase === "intake" || healthImportVisible) && (
         <HealthImport sessionId={sessionId} backendUrl={backendUrl} onImported={(summary) => {
+          setHealthImportVisible(true);
           onHealthImported?.(summary);
           if (summary.medications) {
             const meds = summary.medications.map(m => m.name).filter(n => n.length >= 4);
@@ -761,7 +817,7 @@ export function Chat({ sessionId, onFiltersChanged, detectedLocation, zeroResult
               });
             }
           }
-        }} externalSummary={deviceImportSummary} onDismissed={() => setHealthImportDismissed(true)} autoImportDemo={autoImportDemo} />
+        }} externalSummary={deviceImportSummary} autoImportDemo={autoImportDemo} />
       )}
 
       {/* Messages area */}
@@ -777,7 +833,7 @@ export function Chat({ sessionId, onFiltersChanged, detectedLocation, zeroResult
         }}
       >
         {messages.map((msg, idx) => (
-          <div key={msg.id} className={idx === messages.length - 1 ? "message-enter" : undefined}>
+          <div key={msg.id} data-phase={msg.metadata?.phase as string || ""} className={idx === messages.length - 1 ? "message-enter" : undefined}>
             <MessageBubble
               message={msg}
               onWidgetSubmit={handleWidgetSubmit}
@@ -805,6 +861,7 @@ export function Chat({ sessionId, onFiltersChanged, detectedLocation, zeroResult
         isProcessing={isServerProcessing}
         activityLog={activityLog}
         isComplete={isProcessingComplete}
+        onPhaseClick={handlePhaseClick}
       />
 
       {/* Input area */}
@@ -910,6 +967,46 @@ export function Chat({ sessionId, onFiltersChanged, detectedLocation, zeroResult
           initialParams={sqlParams}
           onClose={() => setShowQueryEditor(false)}
         />
+      )}
+
+      {/* Context usage floating panel */}
+      {showContextPanel && contextInfo && (
+        <div className="absolute bottom-20 right-4 z-20 bg-slate-900/90 text-white rounded-lg p-3 text-xs backdrop-blur shadow-lg min-w-[220px]">
+          <div className="flex items-center justify-between mb-2">
+            <span className="bg-blue-600 text-white px-2 py-0.5 rounded text-[10px] font-medium">{contextInfo.model}</span>
+            <button onClick={() => setShowContextPanel(false)} className="text-slate-400 hover:text-white">
+              <X className="w-3 h-3" />
+            </button>
+          </div>
+          <div className="space-y-1.5">
+            <div>
+              <div className="flex justify-between text-slate-300 mb-0.5">
+                <span>Input tokens</span>
+                <span>{contextInfo.inputTokens.toLocaleString()} / {contextInfo.contextWindow.toLocaleString()}</span>
+              </div>
+              <div className="h-1.5 bg-slate-700 rounded-full overflow-hidden">
+                <div
+                  className={clsx("h-full rounded-full transition-all",
+                    contextInfo.inputTokens / contextInfo.contextWindow > 0.8 ? "bg-red-500" :
+                    contextInfo.inputTokens / contextInfo.contextWindow > 0.5 ? "bg-amber-500" : "bg-emerald-500"
+                  )}
+                  style={{ width: `${Math.min(100, (contextInfo.inputTokens / contextInfo.contextWindow) * 100)}%` }}
+                />
+              </div>
+            </div>
+            <div className="flex justify-between text-slate-300">
+              <span>Output tokens</span>
+              <span>{contextInfo.outputTokens.toLocaleString()}</span>
+            </div>
+            <div className="flex justify-between text-slate-300">
+              <span>Turn</span>
+              <span>{contextInfo.turn}</span>
+            </div>
+            <div className="text-slate-500 text-[10px] mt-1">
+              {((contextInfo.inputTokens / contextInfo.contextWindow) * 100).toFixed(1)}% context used
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

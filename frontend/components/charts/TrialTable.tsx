@@ -22,7 +22,7 @@ export function TrialTable({ filters }: Props) {
     async function load() {
       setLoading(true);
       try {
-        const result = await fetchMatchedTrials(filters, page, 10);
+        const result = await fetchMatchedTrials(filters, page, 5);
         if (!ignore) setData(result);
       } catch {
         if (!ignore) setData(null);
@@ -54,7 +54,7 @@ export function TrialTable({ filters }: Props) {
   }
 
   return (
-    <div className="rounded-lg border border-slate-100 overflow-hidden">
+    <div className="rounded-lg border border-slate-100 overflow-hidden max-h-[240px] overflow-y-auto">
       <table className="w-full">
         <thead>
           <tr className="bg-slate-50 text-xs font-medium text-slate-500">

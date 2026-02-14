@@ -41,6 +41,7 @@ interface Props {
   backendUrl?: string;
   sqlQuery?: string;
   sqlParams?: string[];
+  onContextPanelToggle?: (visible: boolean) => void;
 }
 
 // Demo answer lookup — keyword-based, each entry can only be used once.
@@ -99,7 +100,7 @@ function findDemoAnswer(text: string): string | null {
   return "Yes, let's continue";
 }
 
-export function Chat({ sessionId, onFiltersChanged, detectedLocation, zeroResults, demoRef, onLocationConfirmed, onLocationOverride, onReportReady, healthImported, onHealthImported, backendUrl, sqlQuery, sqlParams }: Props) {
+export function Chat({ sessionId, onFiltersChanged, detectedLocation, zeroResults, demoRef, onLocationConfirmed, onLocationOverride, onReportReady, healthImported, onHealthImported, backendUrl, sqlQuery, sqlParams, onContextPanelToggle }: Props) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
@@ -481,13 +482,13 @@ export function Chat({ sessionId, onFiltersChanged, detectedLocation, zeroResult
         }
       }
     } else if (type === "context_update") {
-      setContextInfo({
+      setContextInfo(prev => ({
         model: data.model as string,
         inputTokens: data.input_tokens as number,
-        outputTokens: data.output_tokens as number,
+        outputTokens: (prev?.outputTokens ?? 0) + (data.output_tokens as number),
         contextWindow: data.context_window as number,
         turn: data.turn as number,
-      });
+      }));
     } else if (type === "done") {
       setIsTyping(false);
       setIsServerProcessing(false);
@@ -790,6 +791,10 @@ export function Chat({ sessionId, onFiltersChanged, detectedLocation, zeroResult
 
   handleTrialSelectionRef.current = handleTrialSelection;
 
+  useEffect(() => {
+    onContextPanelToggle?.(showContextPanel);
+  }, [showContextPanel, onContextPanelToggle]);
+
   const handlePhaseClick = useCallback((phaseKey: string) => {
     const container = messagesContainerRef.current;
     if (!container) return;
@@ -803,7 +808,7 @@ export function Chat({ sessionId, onFiltersChanged, detectedLocation, zeroResult
   return (
     <div className="flex flex-col h-full bg-white/40 backdrop-blur-sm relative">
       {/* Health import card — shown during intake or always after import */}
-      {(currentPhase === "intake" || healthImportVisible) && (
+      {(currentPhase === "intake" || healthImportVisible || autoImportDemo) && (
         <HealthImport sessionId={sessionId} backendUrl={backendUrl} onImported={(summary) => {
           setHealthImportVisible(true);
           onHealthImported?.(summary);
@@ -970,42 +975,73 @@ export function Chat({ sessionId, onFiltersChanged, detectedLocation, zeroResult
       )}
 
       {/* Context usage floating panel */}
-      {showContextPanel && contextInfo && (
+      {showContextPanel && (
         <div className="absolute bottom-20 right-4 z-20 bg-slate-900/90 text-white rounded-lg p-3 text-xs backdrop-blur shadow-lg min-w-[220px]">
-          <div className="flex items-center justify-between mb-2">
-            <span className="bg-blue-600 text-white px-2 py-0.5 rounded text-[10px] font-medium">{contextInfo.model}</span>
-            <button onClick={() => setShowContextPanel(false)} className="text-slate-400 hover:text-white">
-              <X className="w-3 h-3" />
-            </button>
-          </div>
-          <div className="space-y-1.5">
-            <div>
-              <div className="flex justify-between text-slate-300 mb-0.5">
-                <span>Input tokens</span>
-                <span>{contextInfo.inputTokens.toLocaleString()} / {contextInfo.contextWindow.toLocaleString()}</span>
+          {contextInfo ? (
+            <>
+              <div className="flex items-center justify-between mb-2">
+                <span className="bg-blue-600 text-white px-2 py-0.5 rounded text-[10px] font-medium">{contextInfo.model}</span>
+                <button onClick={() => setShowContextPanel(false)} className="text-slate-400 hover:text-white">
+                  <X className="w-3 h-3" />
+                </button>
               </div>
-              <div className="h-1.5 bg-slate-700 rounded-full overflow-hidden">
-                <div
-                  className={clsx("h-full rounded-full transition-all",
-                    contextInfo.inputTokens / contextInfo.contextWindow > 0.8 ? "bg-red-500" :
-                    contextInfo.inputTokens / contextInfo.contextWindow > 0.5 ? "bg-amber-500" : "bg-emerald-500"
-                  )}
-                  style={{ width: `${Math.min(100, (contextInfo.inputTokens / contextInfo.contextWindow) * 100)}%` }}
-                />
+              <div className="space-y-1.5">
+                <div>
+                  <div className="flex justify-between text-slate-300 mb-0.5">
+                    <span>Input tokens</span>
+                    <span>{contextInfo.inputTokens.toLocaleString()} / {contextInfo.contextWindow.toLocaleString()}</span>
+                  </div>
+                  <div className="h-1.5 bg-slate-700 rounded-full overflow-hidden">
+                    <div
+                      className={clsx("h-full rounded-full transition-all",
+                        contextInfo.inputTokens / contextInfo.contextWindow > 0.8 ? "bg-red-500" :
+                        contextInfo.inputTokens / contextInfo.contextWindow > 0.5 ? "bg-amber-500" : "bg-emerald-500"
+                      )}
+                      style={{ width: `${Math.min(100, (contextInfo.inputTokens / contextInfo.contextWindow) * 100)}%` }}
+                    />
+                  </div>
+                </div>
+                <div className="flex justify-between text-slate-300">
+                  <span>Output tokens</span>
+                  <span>{contextInfo.outputTokens.toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between text-slate-300">
+                  <span>Turn</span>
+                  <span>{contextInfo.turn}</span>
+                </div>
+                <div className="text-slate-500 text-[10px] mt-1">
+                  {((contextInfo.inputTokens / contextInfo.contextWindow) * 100).toFixed(1)}% context used
+                </div>
               </div>
-            </div>
-            <div className="flex justify-between text-slate-300">
-              <span>Output tokens</span>
-              <span>{contextInfo.outputTokens.toLocaleString()}</span>
-            </div>
-            <div className="flex justify-between text-slate-300">
-              <span>Turn</span>
-              <span>{contextInfo.turn}</span>
-            </div>
-            <div className="text-slate-500 text-[10px] mt-1">
-              {((contextInfo.inputTokens / contextInfo.contextWindow) * 100).toFixed(1)}% context used
-            </div>
-          </div>
+            </>
+          ) : (
+            <>
+              <div className="flex items-center justify-between mb-2">
+                <span className="bg-blue-600 text-white px-2 py-0.5 rounded text-[10px] font-medium">claude-opus-4-6</span>
+                <button onClick={() => setShowContextPanel(false)} className="text-slate-400 hover:text-white">
+                  <X className="w-3 h-3" />
+                </button>
+              </div>
+              <div className="space-y-1.5">
+                <div>
+                  <div className="flex justify-between text-slate-300 mb-0.5">
+                    <span>Input tokens</span>
+                    <span>0 / 200,000</span>
+                  </div>
+                  <div className="h-1.5 bg-slate-700 rounded-full overflow-hidden">
+                    <div className="h-full rounded-full bg-emerald-500" style={{ width: "0%" }} />
+                  </div>
+                </div>
+                <div className="flex justify-between text-slate-300">
+                  <span>Output tokens</span>
+                  <span>0</span>
+                </div>
+                <div className="text-slate-500 text-[10px] mt-1">
+                  Waiting for first message...
+                </div>
+              </div>
+            </>
+          )}
         </div>
       )}
     </div>

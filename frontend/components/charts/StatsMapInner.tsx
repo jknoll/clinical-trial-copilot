@@ -223,26 +223,34 @@ interface Props {
   travelDistance?: number | null;
 }
 
-function MapFlyTo({ target }: { target: { lat: number; lon: number } | null }) {
+function MapFlyTo({ target, travelDistance }: { target: { lat: number; lon: number } | null; travelDistance?: number | null }) {
   const map = useMap();
   useEffect(() => {
-    if (target) map.flyTo([target.lat, target.lon], 4, { duration: 1.5 });
-  }, [target, map]);
+    if (!target) return;
+    if (travelDistance && travelDistance > 0) {
+      const radiusMeters = travelDistance * 1609.34;
+      const center = L.latLng(target.lat, target.lon);
+      const bounds = center.toBounds(radiusMeters * 2);
+      map.flyToBounds(bounds, { duration: 1.5, padding: [30, 30] });
+    } else {
+      map.flyTo([target.lat, target.lon], 8, { duration: 1.5 });
+    }
+  }, [target, travelDistance, map]);
   return null;
 }
 
 // Center map on user's detected location while keeping world zoom level.
 // Uses setView (instant) on first center so tiles load for the right area
 // from the start, then flyTo for subsequent location changes.
-function MapCenterOnUser({ location, mode }: { location: { latitude: number; longitude: number } | null; mode: string }) {
+function MapCenterOnUser({ location }: { location: { latitude: number; longitude: number } | null }) {
   const map = useMap();
   const hasCentered = useRef(false);
   useEffect(() => {
-    if (location && mode === "countries" && !hasCentered.current) {
+    if (location && !hasCentered.current) {
       hasCentered.current = true;
-      map.setView([location.latitude, location.longitude], 2, { animate: false });
+      map.setView([location.latitude, location.longitude], 4, { animate: false });
     }
-  }, [location, mode, map]);
+  }, [location, map]);
   return null;
 }
 
@@ -333,9 +341,8 @@ export function StatsMapInner({ data, stateData, userLocation, flyTo, travelDist
   const [countries, setCountries] = useState<FeatureCollection | null>(cachedCountries);
   const [states, setStates] = useState<FeatureCollection | null>(cachedStates);
 
-  // Show state-level data once we know the user's location (finest grain)
-  // TODO: Multi-country region queries needed for cross-border radius
-  const mode = userLocation ? "states" : "countries";
+  // Show state-level data when state data is available (finest grain)
+  const mode = stateData && Object.keys(stateData).length > 0 ? "states" : "countries";
 
   useEffect(() => {
     if (!countries) {
@@ -385,8 +392,8 @@ export function StatsMapInner({ data, stateData, userLocation, flyTo, travelDist
 
   // Use user location as initial center so tiles load for the right area
   const initialCenter: [number, number] = useMemo(() => {
-    if (mode === "states") return [39, -96];
     if (userLocation) return [userLocation.latitude, userLocation.longitude];
+    if (mode === "states") return [39, -96];
     return [20, 0];
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode]); // Only compute once per mode (userLocation at mount time)
@@ -406,8 +413,8 @@ export function StatsMapInner({ data, stateData, userLocation, flyTo, travelDist
         minZoom={2}
         maxZoom={8}
       >
-        <MapFlyTo target={flyTo ?? null} />
-        <MapCenterOnUser location={userLocation ?? null} mode={mode} />
+        <MapFlyTo target={flyTo ?? null} travelDistance={travelDistance} />
+        <MapCenterOnUser location={userLocation ?? null} />
         <TileLayer
           url="https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png"
           eventHandlers={{ load: handleTilesLoaded }}

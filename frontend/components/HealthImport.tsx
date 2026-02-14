@@ -351,7 +351,7 @@ export function HealthImport({ sessionId, backendUrl, onImported, externalSummar
           )}
 
           {state === "success" && summary && (
-            <HealthImportSuccess summary={summary} onDone={() => { setExpanded(false); }} />
+            <HealthImportSuccess summary={summary} onDone={() => {}} />
           )}
 
           {state === "idle" && (

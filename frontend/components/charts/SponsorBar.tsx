@@ -23,7 +23,7 @@ export function SponsorBar({ data }: Props) {
   if (!data.length) return null;
 
   const entries = data.slice(0, 10).map((d) => ({
-    name: truncate(d.sponsor, 35),
+    name: truncate(d.sponsor, 50),
     value: d.count,
   }));
 
@@ -42,7 +42,7 @@ export function SponsorBar({ data }: Props) {
           <YAxis
             type="category"
             dataKey="name"
-            width={160}
+            width={220}
             interval={0}
             tick={{ fontSize: 10, fill: "#64748b" }}
           />

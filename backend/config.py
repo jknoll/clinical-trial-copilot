@@ -13,7 +13,7 @@ class Settings(BaseSettings):
     sessions_dir: Path = Path("sessions")
     model: str = "claude-opus-4-6"
 
-    model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
+    model_config = {"env_file": ".env", "env_file_encoding": "utf-8", "extra": "ignore"}
 
 
 settings = Settings()

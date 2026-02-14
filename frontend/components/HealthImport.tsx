@@ -4,7 +4,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Smartphone,
   Upload,
-  FlaskConical,
   ChevronDown,
   ChevronUp,
   CheckCircle2,
@@ -40,6 +39,8 @@ interface HealthImportProps {
   backendUrl?: string;
   onImported?: (summary: ImportSummary) => void;
   externalSummary?: ImportSummary | null;
+  onDismissed?: () => void;
+  autoImportDemo?: boolean;
 }
 
 type ImportState = "idle" | "uploading" | "success" | "error";
@@ -150,7 +151,7 @@ function HealthImportSuccess({ summary, onDone }: { summary: ImportSummary; onDo
   );
 }
 
-export function HealthImport({ sessionId, backendUrl, onImported, externalSummary }: HealthImportProps) {
+export function HealthImport({ sessionId, backendUrl, onImported, externalSummary, onDismissed, autoImportDemo }: HealthImportProps) {
   const [state, setState] = useState<ImportState>("idle");
   const [expanded, setExpanded] = useState(true);
   const [summary, setSummary] = useState<ImportSummary | null>(null);
@@ -221,7 +222,7 @@ export function HealthImport({ sessionId, backendUrl, onImported, externalSummar
     [handleUpload]
   );
 
-  const handleDemoData = useCallback(async () => {
+  const handleDemoImport = useCallback(async () => {
     setState("uploading");
     setErrorMessage("");
     try {
@@ -249,6 +250,13 @@ export function HealthImport({ sessionId, backendUrl, onImported, externalSummar
   const handleDismiss = useCallback(() => {
     setExpanded(false);
   }, []);
+
+  // Auto-trigger demo import when autoImportDemo becomes true
+  useEffect(() => {
+    if (autoImportDemo && state === "idle") {
+      handleDemoImport();
+    }
+  }, [autoImportDemo, state, handleDemoImport]);
 
   // Success badge shown when collapsed after import
   if (state === "success" && !expanded) {
@@ -279,7 +287,7 @@ export function HealthImport({ sessionId, backendUrl, onImported, externalSummar
           className="flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-50 border border-slate-200 text-slate-600 text-sm hover:bg-slate-100 transition-colors"
         >
           <Smartphone className="w-4 h-4" />
-          <span>Import Apple Health Data (Optional)</span>
+          <span>Import Health Data (Optional)</span>
           <ChevronDown className="w-4 h-4 ml-auto" />
         </button>
       </div>
@@ -294,12 +302,16 @@ export function HealthImport({ sessionId, backendUrl, onImported, externalSummar
           <div className="flex items-center gap-2">
             <Smartphone className="w-4 h-4 text-blue-600" />
             <span className="text-sm font-medium text-slate-800">
-              Import Apple Health Data
+              Import Health Data
             </span>
             <span className="text-xs text-slate-400 font-normal">(Optional)</span>
           </div>
           <div className="flex items-center gap-2">
-            <img src="/Apple_Health_badge_US-UK_blk_sRGB.svg" alt="Works with Apple Health" className="h-[24px] w-auto" />
+            <div className="flex items-center gap-1.5">
+              <img src="/Apple_Health_badge_US-UK_blk_sRGB.svg" alt="Works with Apple Health" className="h-[40px] w-auto" />
+              <img src="/Download_on_the_App_Store_Badge.svg" alt="Download on the App Store" className="h-[40px] w-auto" />
+              <img src="/Google_Play_Store_badge.svg" alt="Get it on Google Play" className="h-[40px] w-auto" />
+            </div>
           <button
             onClick={state === "success" ? () => setExpanded(false) : handleDismiss}
             className="text-slate-400 hover:text-slate-600 transition-colors"
@@ -329,27 +341,18 @@ export function HealthImport({ sessionId, backendUrl, onImported, externalSummar
                 <AlertCircle className="w-4 h-4 text-red-500 mt-0.5 shrink-0" />
                 <p className="text-sm text-red-700">{errorMessage}</p>
               </div>
-              <div className="flex gap-3">
-                <button
-                  onClick={() => fileInputRef.current?.click()}
-                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border-2 border-slate-200 text-sm font-medium text-slate-700 hover:border-blue-300 hover:bg-blue-50 transition-all"
-                >
-                  <Upload className="w-4 h-4" />
-                  Try Again
-                </button>
-                <button
-                  onClick={handleDemoData}
-                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border-2 border-slate-200 text-sm font-medium text-slate-700 hover:border-blue-300 hover:bg-blue-50 transition-all"
-                >
-                  <FlaskConical className="w-4 h-4" />
-                  Use Demo Data
-                </button>
-              </div>
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border-2 border-slate-200 text-sm font-medium text-slate-700 hover:border-blue-300 hover:bg-blue-50 transition-all"
+              >
+                <Upload className="w-4 h-4" />
+                Try Again
+              </button>
             </div>
           )}
 
           {state === "success" && summary && (
-            <HealthImportSuccess summary={summary} onDone={() => setExpanded(false)} />
+            <HealthImportSuccess summary={summary} onDone={() => { setExpanded(false); onDismissed?.(); }} />
           )}
 
           {state === "idle" && (
@@ -359,28 +362,9 @@ export function HealthImport({ sessionId, backendUrl, onImported, externalSummar
                 results, activity levels, and medication history.
               </p>
 
-              <div className="flex gap-3">
-                <button
-                  onClick={() => fileInputRef.current?.click()}
-                  className="flex-1 flex flex-col items-center gap-1.5 px-4 py-4 rounded-lg border-2 border-dashed border-slate-200 text-sm font-medium text-slate-700 hover:border-blue-400 hover:bg-blue-50/80 hover:-translate-y-0.5 transition-all cursor-pointer"
-                >
-                  <Upload className="w-5 h-5 text-blue-600" />
-                  <span>Upload File</span>
-                  <span className="text-xs text-slate-400 font-normal">(.zip export)</span>
-                </button>
-                <button
-                  onClick={handleDemoData}
-                  className="flex-1 flex flex-col items-center gap-1.5 px-4 py-4 rounded-lg border-2 border-dashed border-slate-200 text-sm font-medium text-slate-700 hover:border-blue-400 hover:bg-blue-50/80 hover:-translate-y-0.5 transition-all cursor-pointer"
-                >
-                  <FlaskConical className="w-5 h-5 text-blue-600" />
-                  <span>Use Demo Data</span>
-                  <span className="text-xs text-slate-400 font-normal">&nbsp;</span>
-                </button>
-              </div>
-
               {/* Pair Device — QR code for iOS app */}
               {backendUrl && (
-                <div className="mt-3 pt-3 border-t border-slate-100">
+                <div className="mt-1 mb-3">
                   <button
                     onClick={() => {
                       const el = document.getElementById("pair-device-qr");
@@ -416,9 +400,14 @@ export function HealthImport({ sessionId, backendUrl, onImported, externalSummar
                 </div>
               )}
 
-              <p className="text-xs text-slate-400 mt-3">
-                How to export: Settings &gt; Health &gt; Export All Health Data
-              </p>
+              <div className="flex items-center gap-2 text-xs text-slate-400 mt-3">
+                <button onClick={() => fileInputRef.current?.click()}
+                  className="inline-flex items-center gap-1 text-blue-600 hover:underline font-medium">
+                  <Upload className="w-3 h-3" /> Upload File
+                </button>
+                <span className="text-slate-300">|</span>
+                <span>How to export: Settings &gt; Health &gt; Export All Health Data</span>
+              </div>
             </>
           )}
         </div>

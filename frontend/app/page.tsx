@@ -232,8 +232,12 @@ export default function Home() {
   const handleLocationConfirmed = useCallback((lat: number, lon: number) => {
     setMapFlyTo({ lat, lon });
     setUserLocation({ latitude: lat, longitude: lon });
-    setFilters((prev) => ({ ...prev, latitude: lat, longitude: lon }));
-  }, []);
+    setFilters((prev) => {
+      const merged = { ...prev, latitude: lat, longitude: lon };
+      doFetchStats(merged);
+      return merged;
+    });
+  }, [doFetchStats]);
 
   const handleLocationOverride = useCallback((locationText: string) => {
     forwardGeocode(locationText).then((result) => {
@@ -244,10 +248,15 @@ export default function Home() {
           latitude: result.latitude,
           longitude: result.longitude,
         });
-        setFilters((prev) => ({ ...prev, latitude: result.latitude, longitude: result.longitude }));
+        setMapFlyTo({ lat: result.latitude, lon: result.longitude });
+        setFilters((prev) => {
+          const merged = { ...prev, latitude: result.latitude, longitude: result.longitude };
+          doFetchStats(merged);
+          return merged;
+        });
       }
     }).catch(() => {});
-  }, []);
+  }, [doFetchStats]);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {

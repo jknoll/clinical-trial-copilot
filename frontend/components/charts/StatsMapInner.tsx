@@ -333,7 +333,9 @@ export function StatsMapInner({ data, stateData, userLocation, flyTo, travelDist
   const [countries, setCountries] = useState<FeatureCollection | null>(cachedCountries);
   const [states, setStates] = useState<FeatureCollection | null>(cachedStates);
 
-  const mode = flyTo ? "states" : "countries";
+  // Show state-level data once we know the user's location (finest grain)
+  // TODO: Multi-country region queries needed for cross-border radius
+  const mode = userLocation ? "states" : "countries";
 
   useEffect(() => {
     if (!countries) {

@@ -211,7 +211,7 @@ export function StatsPanel({ stats, activeFilters, loading, error, userLocation,
 
         {/* Geographic map */}
         {Object.keys(stats.geo_distribution).length > 0 && (
-          <Section title={mapFlyTo ? "US Trial Locations" : "Global Trial Locations"}>
+          <Section title="Trial Locations">
             <StatsMap data={stats.geo_distribution} stateData={stats.geo_distribution_states} userLocation={userLocation} flyTo={mapFlyTo} travelDistance={travelDistance} />
           </Section>
         )}

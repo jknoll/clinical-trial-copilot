@@ -186,6 +186,11 @@ export function StatsPanel({ stats, activeFilters, loading, error, userLocation,
             </div>
             <p className="text-blue-200 text-xs mt-1 tabular-nums">{pct}% of all trials</p>
           </div>
+          {loading && (
+            <div className="absolute inset-0 overflow-hidden rounded-xl">
+              <div className="h-full w-full bg-gradient-to-r from-transparent via-white/20 to-transparent animate-stats-shimmer" />
+            </div>
+          )}
         </div>
 
         {/* Active filters */}
@@ -209,6 +214,7 @@ export function StatsPanel({ stats, activeFilters, loading, error, userLocation,
           </div>
         )}
 
+        <div className={loading ? "opacity-60 transition-opacity duration-300" : ""}>
         {/* Geographic map */}
         {Object.keys(stats.geo_distribution).length > 0 && (
           <Section title="Trial Locations">
@@ -340,14 +346,7 @@ export function StatsPanel({ stats, activeFilters, loading, error, userLocation,
           </Section>
         )}
 
-        {loading && (
-          <div className="flex items-center justify-center py-2">
-            <div className="flex items-center gap-2 text-xs text-slate-400">
-              <div className="w-3 h-3 rounded-full border-2 border-blue-400 border-t-transparent animate-spin" />
-              Updating...
-            </div>
-          </div>
-        )}
+        </div>{/* end dimming wrapper */}
       </div>
     </div>
   );

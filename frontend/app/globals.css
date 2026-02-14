@@ -129,6 +129,13 @@ body {
   animation: shimmer 1.5s ease-in-out infinite;
 }
 
+/* Stats hero card loading shimmer */
+@keyframes stats-shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+.animate-stats-shimmer { animation: stats-shimmer 1.5s infinite; }
+
 /* Consent modal entrance */
 @keyframes modalIn {
   from { opacity: 0; transform: scale(0.95); }

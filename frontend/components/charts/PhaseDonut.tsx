@@ -69,7 +69,7 @@ export function PhaseDonut({ data }: Props) {
             ))}
           </Pie>
           <Tooltip
-            formatter={(value: number) => [value.toLocaleString(), "Trials"]}
+            formatter={(value: number | undefined) => [(value ?? 0).toLocaleString(), "Trials"]}
             contentStyle={{ fontSize: 12 }}
           />
           <Legend

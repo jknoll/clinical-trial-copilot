@@ -56,6 +56,14 @@ Copy `.env.example` to `.env` and fill in:
 - Type `/speedtest` for a faster single-message flow using multiple myeloma (medium-commonality condition)
 - Always test frontend changes in Claude in Chrome before considering them complete
 
+## Testing in Browser (MANDATORY)
+Always test frontend changes in Claude in Chrome before considering them complete. This is a non-negotiable requirement — never skip browser verification. After making UI changes:
+1. Ensure both dev servers are running (backend on 8100, frontend on 3000)
+2. Open http://localhost:3000 in Claude in Chrome
+3. Visually verify all changed components render correctly
+4. Test interactive elements (clicks, animations, transitions)
+5. Check the browser console for errors
+
 ## Context Overflow Protocol
 If you run out of context in the middle of executing a plan, you MUST:
 1. Clearly state to the user that context is running low and which tasks remain incomplete

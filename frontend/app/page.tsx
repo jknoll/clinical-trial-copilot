@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Chat } from "@/components/Chat";
 import { StatsPanel } from "@/components/StatsPanel";
 import { SplitHandle } from "@/components/SplitHandle";
@@ -28,6 +28,55 @@ const EMPTY_FILTERS: FacetedFilters = {
   longitude: null,
   distance_miles: null,
 };
+
+const TAGLINES = ["571,118 Trials.", "One that fits.", "Every patient deserves a match."];
+
+function TaglineCycler() {
+  const [index, setIndex] = useState(0);
+  const [visible, setVisible] = useState(true);
+
+  useEffect(() => {
+    const cycle = setInterval(() => {
+      setVisible(false);
+      setTimeout(() => {
+        setIndex((prev) => (prev + 1) % TAGLINES.length);
+        setVisible(true);
+      }, 600);
+    }, 2600);
+    return () => clearInterval(cycle);
+  }, []);
+
+  return (
+    <span
+      style={{ transition: "opacity 0.6s ease-in-out", opacity: visible ? 1 : 0 }}
+      className="inline-block"
+    >
+      {TAGLINES[index]}
+    </span>
+  );
+}
+
+function AnimatedCount({ target }: { target: number }) {
+  const [count, setCount] = useState(0);
+  useEffect(() => {
+    if (target <= 0) return;
+    const duration = 1200;
+    const steps = 40;
+    const increment = target / steps;
+    let current = 0;
+    const timer = setInterval(() => {
+      current += increment;
+      if (current >= target) {
+        setCount(target);
+        clearInterval(timer);
+      } else {
+        setCount(Math.floor(current));
+      }
+    }, duration / steps);
+    return () => clearInterval(timer);
+  }, [target]);
+  return <>{count.toLocaleString()}</>;
+}
 
 export default function Home() {
   const [sessionId, setSessionId] = useState<string | null>(null);
@@ -330,7 +379,7 @@ export default function Home() {
             <div className="h-1 bg-gradient-to-r from-blue-600 to-indigo-600" />
             <div className="p-8 text-center">
             <img src="/logo.png" alt="Clinical Trial Compass" className="w-72 h-72 mx-auto -mt-16 -mb-12 object-contain mix-blend-multiply" />
-            <h2 className="text-xl font-semibold text-slate-900 mb-3">Before We Begin</h2>
+            <h2 className="text-xl font-semibold text-slate-900 mb-3"><TaglineCycler /></h2>
             <p className="text-sm text-slate-700 mb-4 leading-relaxed">
               Clinical Trial Compass helps you find relevant clinical trials through a guided
               conversation. We&apos;ll narrow down trials that match your condition, location,
@@ -345,7 +394,7 @@ export default function Home() {
                 <img src="/ctg-logo.svg" alt="" className="w-9 h-9 shrink-0" />
                 <div>
                   <div className="text-xs font-semibold text-slate-800">ClinicalTrials.gov</div>
-                  <div className="text-xs text-slate-500">{stats ? stats.total.toLocaleString() : "500,000+"} studies</div>
+                  <div className="text-xs text-slate-500"><AnimatedCount target={stats?.total ?? 0} /> studies</div>
                 </div>
               </a>
               <a href="https://open.fda.gov" target="_blank" rel="noopener noreferrer"

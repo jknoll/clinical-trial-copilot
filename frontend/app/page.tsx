@@ -41,14 +41,14 @@ function TaglineCycler() {
       setTimeout(() => {
         setIndex((prev) => (prev + 1) % TAGLINES.length);
         setVisible(true);
-      }, 600);
-    }, 2600);
+      }, 1800);
+    }, 7800);
     return () => clearInterval(cycle);
   }, []);
 
   return (
     <span
-      style={{ transition: "opacity 0.6s ease-in-out", opacity: visible ? 1 : 0 }}
+      style={{ transition: "opacity 1.8s ease-in-out", opacity: visible ? 1 : 0 }}
       className="inline-block"
     >
       {TAGLINES[index]}
@@ -58,22 +58,31 @@ function TaglineCycler() {
 
 function AnimatedCount({ target }: { target: number }) {
   const [count, setCount] = useState(0);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
   useEffect(() => {
     if (target <= 0) return;
-    const duration = 1200;
-    const steps = 40;
-    const increment = target / steps;
-    let current = 0;
-    const timer = setInterval(() => {
-      current += increment;
-      if (current >= target) {
-        setCount(target);
-        clearInterval(timer);
-      } else {
-        setCount(Math.floor(current));
-      }
-    }, duration / steps);
-    return () => clearInterval(timer);
+    setCount(0);
+    // Small delay so animation is visible after modal renders
+    const delay = setTimeout(() => {
+      const duration = 1500;
+      const steps = 50;
+      const increment = target / steps;
+      let current = 0;
+      timerRef.current = setInterval(() => {
+        current += increment;
+        if (current >= target) {
+          setCount(target);
+          if (timerRef.current) clearInterval(timerRef.current);
+        } else {
+          setCount(Math.floor(current));
+        }
+      }, duration / steps);
+    }, 400);
+    return () => {
+      clearTimeout(delay);
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
   }, [target]);
   return <>{count.toLocaleString()}</>;
 }

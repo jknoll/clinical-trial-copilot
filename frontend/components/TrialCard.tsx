@@ -61,13 +61,13 @@ export function TrialCard({
       className={clsx(
         "trial-card relative",
         selectable && "cursor-pointer",
-        selected && "ring-2 ring-blue-500"
+        selected ? "ring-2 ring-blue-500 bg-blue-50/50" : ""
       )}
       onClick={selectable ? onToggle : undefined}
     >
       {selectable && (
         <div className={clsx(
-          "absolute top-3 right-3 z-10 w-5 h-5 rounded border-2 flex items-center justify-center transition-colors",
+          "absolute top-3 left-3 z-10 w-5 h-5 rounded border-2 flex items-center justify-center transition-colors",
           selected
             ? "bg-blue-600 border-blue-600"
             : "bg-white border-slate-300"
@@ -77,7 +77,7 @@ export function TrialCard({
       )}
       <div className={clsx("flex gap-4", hasMap && "min-h-[180px]")}>
         {/* Left: card content */}
-        <div className="flex-1 min-w-0 flex flex-col">
+        <div className={clsx("flex-1 min-w-0 flex flex-col", selectable && "pl-7")}>
           <div className="flex items-start justify-between gap-3">
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 mb-1">

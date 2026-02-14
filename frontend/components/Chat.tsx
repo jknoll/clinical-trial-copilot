@@ -7,6 +7,7 @@ import { ChatMessage } from "@/lib/types";
 import { MessageBubble } from "./MessageBubble";
 import { AgentActivity, LogEntry } from "./AgentActivity";
 import { HealthImport, ImportSummary } from "./HealthImport";
+import { QueryEditor } from "./QueryEditor";
 
 import { FacetedFilters, ActiveFilter } from "@/lib/types";
 import { humanizeLabel } from "@/lib/statsApi";
@@ -14,6 +15,7 @@ import { humanizeLabel } from "@/lib/statsApi";
 const SLASH_COMMANDS = [
   { command: "/test", label: "/test", description: "Run Ewing Sarcoma demo flow" },
   { command: "/speedtest", label: "/speedtest", description: "Run Multiple Myeloma speed test" },
+  { command: "/query", label: "/query", description: "Open SQL query editor" },
 ];
 
 interface DetectedLocation {
@@ -34,6 +36,8 @@ interface Props {
   healthImported?: boolean;
   onHealthImported?: (summary: ImportSummary) => void;
   backendUrl?: string;
+  sqlQuery?: string;
+  sqlParams?: string[];
 }
 
 // Demo answer lookup — keyword-based, each entry can only be used once.
@@ -92,7 +96,7 @@ function findDemoAnswer(text: string): string | null {
   return "Yes, let's continue";
 }
 
-export function Chat({ sessionId, onFiltersChanged, detectedLocation, zeroResults, demoRef, onLocationConfirmed, onLocationOverride, onReportReady, healthImported, onHealthImported, backendUrl }: Props) {
+export function Chat({ sessionId, onFiltersChanged, detectedLocation, zeroResults, demoRef, onLocationConfirmed, onLocationOverride, onReportReady, healthImported, onHealthImported, backendUrl, sqlQuery, sqlParams }: Props) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
@@ -113,6 +117,7 @@ export function Chat({ sessionId, onFiltersChanged, detectedLocation, zeroResult
   const [isProcessingComplete, setIsProcessingComplete] = useState(false);
   const [healthImportDismissed, setHealthImportDismissed] = useState(false);
   const [autoImportDemo, setAutoImportDemo] = useState(false);
+  const [showQueryEditor, setShowQueryEditor] = useState(false);
   const [showSlashMenu, setShowSlashMenu] = useState(false);
   const [slashMenuIndex, setSlashMenuIndex] = useState(0);
   const [filteredCommands, setFilteredCommands] = useState(SLASH_COMMANDS);
@@ -582,6 +587,14 @@ export function Chat({ sessionId, onFiltersChanged, detectedLocation, zeroResult
     let text = input.trim();
     if (!text || !wsRef.current) return;
 
+    // /query: open SQL editor modal
+    if (text.toLowerCase() === "/query") {
+      setInput("");
+      setShowSlashMenu(false);
+      setShowQueryEditor(true);
+      return;
+    }
+
     // Hidden test mode: typing "/test" as first message activates automated demo
     if (text.toLowerCase() === "/test" && messageCountRef.current === 0) {
       demoModeRef.current = true;
@@ -889,6 +902,15 @@ export function Chat({ sessionId, onFiltersChanged, detectedLocation, zeroResult
           </button>
         </div>
       </div>
+
+      {/* Query Editor modal */}
+      {showQueryEditor && (
+        <QueryEditor
+          initialSql={sqlQuery}
+          initialParams={sqlParams}
+          onClose={() => setShowQueryEditor(false)}
+        />
+      )}
     </div>
   );
 }

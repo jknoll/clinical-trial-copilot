@@ -353,6 +353,8 @@ export default function Home() {
               healthImported={healthImported}
               onHealthImported={handleHealthImported}
               backendUrl={API_URL}
+              sqlQuery={stats?.sql_query}
+              sqlParams={stats?.sql_params}
             />
           ) : (
             <div className="flex items-center justify-center h-full">

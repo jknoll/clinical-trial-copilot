@@ -84,6 +84,8 @@ export interface StatsData {
   geo_distribution: Record<string, number>;
   geo_distribution_states: Record<string, number>;
   funnel: FunnelStep[];
+  sql_query?: string;
+  sql_params?: string[];
 }
 
 export interface ActiveFilter {

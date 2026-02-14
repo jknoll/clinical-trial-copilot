@@ -241,6 +241,8 @@ async def query_faceted_stats(filters: dict[str, Any]) -> dict[str, Any]:
         "geo_distribution_states": geo_distribution_states,
         "funnel": funnel,
         "all_status_distribution": all_status,
+        "sql_query": count_q,
+        "sql_params": [str(p) for p in params],
     }
 
 

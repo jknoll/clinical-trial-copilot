@@ -9,6 +9,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from backend.mcp_servers.aact_queries import (
+    get_pool,
     get_total_count,
     get_top_conditions,
     query_faceted_stats,
@@ -74,6 +75,12 @@ class StatsResponse(BaseModel):
     geo_distribution_states: dict[str, int]
     funnel: list[FunnelStep]
     all_status_distribution: dict[str, int]
+    sql_query: str | None = None
+    sql_params: list[str] | None = None
+
+
+class RawQueryRequest(BaseModel):
+    sql: str
 
 
 @router.get("/total")
@@ -174,6 +181,32 @@ async def matched_trials(q: StatsQuery, page: int = 1, per_page: int = 10) -> di
     except Exception as e:
         logger.error(f"AACT matched trials error: {e}")
         raise HTTPException(status_code=503, detail="AACT database unavailable")
+
+
+@router.post("/raw-query")
+async def raw_query(body: RawQueryRequest) -> dict:
+    """Execute a read-only SQL query against the AACT database. SELECT only, max 500 rows."""
+    sql = body.sql.strip()
+    if not sql.upper().startswith("SELECT"):
+        raise HTTPException(status_code=400, detail="Only SELECT queries are allowed")
+    # Safety: block dangerous keywords
+    upper = sql.upper()
+    for kw in ("DROP", "DELETE", "UPDATE", "INSERT", "ALTER", "TRUNCATE", "CREATE", "GRANT", "REVOKE"):
+        if kw in upper:
+            raise HTTPException(status_code=400, detail=f"Forbidden keyword: {kw}")
+    try:
+        pool = await get_pool()
+        rows = await pool.fetch(f"{sql} LIMIT 500")
+        if not rows:
+            return {"columns": [], "rows": []}
+        columns = list(rows[0].keys())
+        data = [dict(row) for row in rows]
+        return {"columns": columns, "rows": data}
+    except RuntimeError:
+        raise HTTPException(status_code=503, detail="AACT database not configured")
+    except Exception as e:
+        logger.error(f"Raw query error: {e}")
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 # ---------------------------------------------------------------------------

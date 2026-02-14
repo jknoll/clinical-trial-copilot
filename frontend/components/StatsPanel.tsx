@@ -34,7 +34,8 @@ import { FacilityCountChart } from "./charts/FacilityCountChart";
 import { CountryChart } from "./charts/CountryChart";
 import { CompletionRateChart } from "./charts/CompletionRateChart";
 import { FunderTypeChart } from "./charts/FunderTypeChart";
-import { Database, X, Filter, Activity, Building2, Users, List, FlaskConical, Globe, Calendar, Clock, MapPin, CheckCircle, Wallet, Beaker, UserCheck } from "lucide-react";
+import { FunnelChart } from "./charts/FunnelChart";
+import { Database, X, Filter, Activity, Building2, Users, List, FlaskConical, Globe, Calendar, Clock, MapPin, CheckCircle, Wallet, Beaker, UserCheck, TrendingDown } from "lucide-react";
 
 interface Props {
   stats: StatsData | null;
@@ -212,6 +213,13 @@ export function StatsPanel({ stats, activeFilters, loading, error, userLocation,
               ))}
             </div>
           </div>
+        )}
+
+        {/* Search Funnel */}
+        {stats.funnel && stats.funnel.length > 0 && (
+          <Section title="Search Funnel" icon={<TrendingDown className="w-3.5 h-3.5" />}>
+            <FunnelChart data={stats.funnel} />
+          </Section>
         )}
 
         <div className={loading ? "opacity-60 transition-opacity duration-300" : ""}>

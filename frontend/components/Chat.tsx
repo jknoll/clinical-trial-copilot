@@ -174,6 +174,22 @@ export function Chat({ sessionId, onFiltersChanged, detectedLocation, zeroResult
         return [...prev, msg];
       });
     } else if (type === "text_done") {
+      // Extract potential drug names from assistant text via common pharmaceutical suffixes
+      const DRUG_SUFFIXES = /\b\w{4,}(?:ine|ole|ide|mab|nib|lib|pam|lam|fen|cin|lin|tin|mil|dol)\b/gi;
+      const COMMON_WORDS = new Set(["online", "define", "combine", "determine", "examine", "imagine", "medicine", "routine", "vaccine", "provide", "include", "inside", "outside", "decide", "beside", "divide", "oline"]);
+      const lastText = pendingTextRef.current;
+      const matches = lastText.match(DRUG_SUFFIXES) || [];
+      const newDrugs = matches
+        .map(m => m.toLowerCase())
+        .filter(m => m.length >= 5 && !COMMON_WORDS.has(m));
+      if (newDrugs.length > 0) {
+        setKnownDrugs(prev => {
+          const set = new Set(prev);
+          for (const d of newDrugs) set.add(d);
+          return Array.from(set);
+        });
+      }
+
       pendingTextRef.current = "";
       pendingIdRef.current = "";
       setIsTyping(false);
@@ -286,13 +302,17 @@ export function Chat({ sessionId, onFiltersChanged, detectedLocation, zeroResult
 
       // Extract intervention/drug names for auto-linking in chat text
       const trials = (data.trials as Array<Record<string, unknown>>) || [];
+      const normalize = (name: string) => name
+        .replace(/\s+(hydrochloride|capsules|tablets|injection|solution|cream|ointment)$/i, "")
+        .trim();
       const drugNames = trials
         .flatMap((t) => (t.interventions as string[]) || [])
         .filter((name) => name && name.length >= 4);
-      if (drugNames.length > 0) {
+      const allNames = [...drugNames, ...drugNames.map(normalize)].filter(n => n.length >= 4);
+      if (allNames.length > 0) {
         setKnownDrugs((prev) => {
           const set = new Set(prev);
-          for (const d of drugNames) set.add(d);
+          for (const d of allNames) set.add(d);
           return Array.from(set);
         });
       }
@@ -421,6 +441,17 @@ export function Chat({ sessionId, onFiltersChanged, detectedLocation, zeroResult
       };
       setDeviceImportSummary(importSummary);
       onHealthImported?.(importSummary);
+      // Add medication names to knownDrugs for auto-linking
+      if (importSummary.medications) {
+        const meds = importSummary.medications.map(m => m.name).filter(n => n.length >= 4);
+        if (meds.length > 0) {
+          setKnownDrugs(prev => {
+            const set = new Set(prev);
+            for (const m of meds) set.add(m);
+            return Array.from(set);
+          });
+        }
+      }
     } else if (type === "done") {
       setIsTyping(false);
       setIsServerProcessing(false);
@@ -701,7 +732,19 @@ export function Chat({ sessionId, onFiltersChanged, detectedLocation, zeroResult
     <div className="flex flex-col h-full bg-white/40 backdrop-blur-sm">
       {/* Health import card — shown during intake phase; component handles its own collapse/badge */}
       {currentPhase === "intake" && (
-        <HealthImport sessionId={sessionId} backendUrl={backendUrl} onImported={onHealthImported} externalSummary={deviceImportSummary} />
+        <HealthImport sessionId={sessionId} backendUrl={backendUrl} onImported={(summary) => {
+          onHealthImported?.(summary);
+          if (summary.medications) {
+            const meds = summary.medications.map(m => m.name).filter(n => n.length >= 4);
+            if (meds.length > 0) {
+              setKnownDrugs(prev => {
+                const set = new Set(prev);
+                for (const m of meds) set.add(m);
+                return Array.from(set);
+              });
+            }
+          }
+        }} externalSummary={deviceImportSummary} />
       )}
 
       {/* Messages area */}

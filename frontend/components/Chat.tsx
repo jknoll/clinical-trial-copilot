@@ -16,6 +16,7 @@ import { humanizeLabel } from "@/lib/statsApi";
 const SLASH_COMMANDS = [
   { command: "/test", label: "/test", description: "Run Ewing Sarcoma demo flow" },
   { command: "/speedtest", label: "/speedtest", description: "Run Multiple Myeloma speed test" },
+  { command: "/test-large-context", label: "/test-large-context", description: "Run large context stress test (diabetes)" },
   { command: "/query", label: "/query", description: "Open SQL query editor" },
   { command: "/context", label: "/context", description: "Show model & context usage" },
   { command: "/health-import", label: "/health-import", description: "Import demo health data" },
@@ -655,6 +656,14 @@ export function Chat({ sessionId, onFiltersChanged, detectedLocation, zeroResult
       _usedDemoAnswers.clear();
       setAutoImportDemo(true);
       text = "I have relapsed multiple myeloma, diagnosed 2 years ago, currently on second-line treatment with lenalidomide and dexamethasone. 58 year old female in Chicago, IL. Willing to travel up to 200 miles. Open to any phase, treatment trials, comfortable with placebo. Activity level: I can do most daily activities but get tired easily.";
+    }
+
+    // Large context stress test: uses a very common condition to maximize trial matches
+    if (text.toLowerCase() === "/test-large-context" && messageCountRef.current === 0) {
+      demoModeRef.current = true;
+      _usedDemoAnswers.clear();
+      setAutoImportDemo(true);
+      text = "I have type 2 diabetes, diagnosed 5 years ago, currently on metformin and insulin. 62 year old male in New York City. Willing to travel up to 1000 miles. Open to all phases, any trial type, comfortable with placebo. Activity level: moderate, I can do daily activities but tire easily.";
     }
 
     const msg: ChatMessage = {

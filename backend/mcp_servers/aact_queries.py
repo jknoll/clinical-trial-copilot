@@ -247,13 +247,8 @@ async def query_faceted_stats(filters: dict[str, Any]) -> dict[str, Any]:
 
 
 async def _build_funnel(pool: asyncpg.Pool, filters: dict[str, Any]) -> list[dict[str, Any]]:
-    """Progressive narrowing funnel: All Active → Condition → +Recruiting → +Age → +Sex → +Location."""
-    placeholders = ", ".join(f"${i+1}" for i in range(len(ACTIVE_STATUSES)))
-    total = int(await pool.fetchval(
-        f"SELECT COUNT(*) FROM ctgov.studies WHERE LOWER(overall_status) IN ({placeholders})",
-        *ACTIVE_STATUSES,
-    ))
-    funnel = [{"stage": "All Active Trials", "count": total}]
+    """Progressive narrowing funnel: Condition → +Recruiting → +Age → +Sex → +Location."""
+    funnel: list[dict[str, Any]] = []
 
     condition = filters.get("condition", "").strip()
     if not condition:

@@ -26,11 +26,11 @@ It does not provide medical advice. It provides information to help patients hav
 │    Frontend (Next.js 16) │           │       Backend (FastAPI)             │
 │                          │           │                                     │
 │  35 React components     │ WebSocket │  Agent Orchestrator (Claude Opus)   │
-│  18 chart types          │◄────────►│  17 tools · 6 phase prompts         │
+│  18 chart types          │◄────────► │  17 tools · 6 phase prompts         │
 │  Leaflet maps            │ streaming │                                     │
-│  Recharts visualizations │   chat    │  ┌─ ClinicalTrials.gov (aiohttp)   │
+│  Recharts visualizations │   chat    │  ┌─ ClinicalTrials.gov (aiohttp)    │
 │                          │           │  ├─ openFDA (httpx)                 │
-│  Stats panel (real-time) │◄── REST ─►│  ├─ Open-Meteo Geocoding (httpx)   │
+│  Stats panel (real-time) │◄── REST ─►│  ├─ Open-Meteo Geocoding (httpx)    │
 │  30 endpoints            │  stats    │  ├─ AACT PostgreSQL (asyncpg)       │
 │                          │           │  └─ Apple Health (file import)      │
 └──────────────────────────┘           │                                     │

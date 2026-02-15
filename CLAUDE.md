@@ -64,6 +64,26 @@ Always test frontend changes in Claude in Chrome before considering them complet
 4. Test interactive elements (clicks, animations, transitions)
 5. Check the browser console for errors
 
+## iOS Companion App
+The iOS app lives in the `ios/` submodule. It requires XcodeGen to generate the Xcode project:
+```bash
+cd ios
+brew install xcodegen  # if not installed
+xcodegen generate
+```
+
+**Always use iPhone 16e** for the simulator — it uses significantly less memory than larger devices, which matters on 16 GB machines:
+```bash
+xcrun simctl boot "iPhone 16e"
+open -a Simulator
+xcodebuild -project ClinicalTrialCompass.xcodeproj -scheme ClinicalTrialHealth \
+  -sdk iphonesimulator -destination 'platform=iOS Simulator,name=iPhone 16e' build
+xcrun simctl install booted path/to/ClinicalTrialHealth.app
+xcrun simctl launch booted com.clinicaltrialcopilot.health
+```
+
+The app defaults to `http://localhost:8100` (the backend) in the simulator. Do not change this to port 3000 (the frontend).
+
 ## Context Overflow Protocol
 If you run out of context in the middle of executing a plan, you MUST:
 1. Clearly state to the user that context is running low and which tasks remain incomplete

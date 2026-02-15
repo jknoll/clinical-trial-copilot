@@ -275,6 +275,14 @@
                 height: 200px !important;
             }
 
+            .map-screen {
+                display: none !important;
+            }
+
+            .map-print {
+                display: block !important;
+            }
+
             a {
                 color: var(--blue-700);
                 text-decoration: underline;
@@ -423,14 +431,21 @@
 
             {% if trial.nearest_location %}
             <h3>Nearest Location</h3>
-            <div style="display: flex; gap: 1rem; align-items: flex-start;">
-                <p style="font-size: 0.9rem; flex: 1;">
-                    {{ trial.nearest_location.facility }}{% if trial.nearest_location.city %}, {{ trial.nearest_location.city }}{% endif %}{% if trial.nearest_location.state %}, {{ trial.nearest_location.state }}{% endif %}
-                    {% if trial.nearest_location.contact_phone %}<br>Phone: {{ trial.nearest_location.contact_phone }}{% endif %}
-                    {% if trial.nearest_location.contact_email %}<br>Email: {{ trial.nearest_location.contact_email }}{% endif %}
-                </p>
+            <div style="overflow: hidden;">
                 {% if trial.nearest_location.latitude is not none and trial.nearest_location.longitude is not none %}
-                <a href="https://www.google.com/maps/search/?api=1&query={{ trial.nearest_location.latitude }},{{ trial.nearest_location.longitude }}" target="_blank">
+                <!-- Interactive OSM embed for HTML/screen view -->
+                <div class="map-screen" style="float: right; margin-left: 1rem; margin-bottom: 0.5rem;">
+                    <iframe
+                        width="270" height="270"
+                        style="border: 1px solid var(--slate-200); border-radius: 8px;"
+                        src="https://www.openstreetmap.org/export/embed.html?bbox={{ trial.nearest_location.longitude - 0.05 }}%2C{{ trial.nearest_location.latitude - 0.03 }}%2C{{ trial.nearest_location.longitude + 0.05 }}%2C{{ trial.nearest_location.latitude + 0.03 }}&layer=mapnik&marker={{ trial.nearest_location.latitude }}%2C{{ trial.nearest_location.longitude }}"
+                        loading="lazy"
+                    ></iframe>
+                    <br>
+                    <a href="https://www.google.com/maps/search/?api=1&query={{ trial.nearest_location.latitude }},{{ trial.nearest_location.longitude }}" target="_blank" style="font-size: 0.8rem;">Map</a>
+                </div>
+                <!-- Static map image for PDF/print view -->
+                <div class="map-print" style="float: right; margin-left: 1rem; margin-bottom: 0.5rem; display: none;">
                     <img
                         src="{{ trial.map_data_uri }}"
                         alt="Map for {{ trial.nct_id }}"
@@ -438,8 +453,15 @@
                         style="border: 1px solid var(--slate-200); border-radius: 8px;"
                         loading="lazy"
                     />
-                </a>
+                    <br>
+                    <a href="https://www.google.com/maps/search/?api=1&query={{ trial.nearest_location.latitude }},{{ trial.nearest_location.longitude }}" target="_blank" style="font-size: 0.8rem;">Map</a>
+                </div>
                 {% endif %}
+                <p style="font-size: 0.9rem;">
+                    {{ trial.nearest_location.facility }}{% if trial.nearest_location.city %}, {{ trial.nearest_location.city }}{% endif %}{% if trial.nearest_location.state %}, {{ trial.nearest_location.state }}{% endif %}
+                    {% if trial.nearest_location.contact_phone %}<br>Phone: {{ trial.nearest_location.contact_phone }}{% endif %}
+                    {% if trial.nearest_location.contact_email %}<br>Email: {{ trial.nearest_location.contact_email }}{% endif %}
+                </p>
             </div>
             {% endif %}
 

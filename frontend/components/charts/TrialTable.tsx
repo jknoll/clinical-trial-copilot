@@ -1,40 +1,68 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { FacetedFilters, PaginatedTrials } from "@/lib/types";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { FacetedFilters, MatchedTrialRow } from "@/lib/types";
 import { fetchMatchedTrials } from "@/lib/statsApi";
 
 interface Props {
   filters: FacetedFilters;
 }
 
-export function TrialTable({ filters }: Props) {
-  const [data, setData] = useState<PaginatedTrials | null>(null);
-  const [page, setPage] = useState(1);
-  const [loading, setLoading] = useState(false);
+const PAGE_SIZE = 50;
 
+export function TrialTable({ filters }: Props) {
+  const [trials, setTrials] = useState<MatchedTrialRow[]>([]);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(true);
+  const filtersRef = useRef(filters);
+
+  // Reset when filters change
   useEffect(() => {
+    filtersRef.current = filters;
+    setTrials([]);
     setPage(1);
+    setHasMore(true);
+    setInitialLoading(true);
   }, [filters]);
 
+  // Load data for current page
   useEffect(() => {
     let ignore = false;
     async function load() {
       setLoading(true);
       try {
-        const result = await fetchMatchedTrials(filters, page, 5);
-        if (!ignore) setData(result);
+        const result = await fetchMatchedTrials(filtersRef.current, page, PAGE_SIZE);
+        if (!ignore) {
+          if (page === 1) {
+            setTrials(result.trials);
+          } else {
+            setTrials(prev => [...prev, ...result.trials]);
+          }
+          setHasMore(page < result.total_pages);
+        }
       } catch {
-        if (!ignore) setData(null);
+        if (!ignore && page === 1) setTrials([]);
       } finally {
-        if (!ignore) setLoading(false);
+        if (!ignore) {
+          setLoading(false);
+          setInitialLoading(false);
+        }
       }
     }
     load();
     return () => { ignore = true; };
   }, [filters, page]);
 
-  if (loading && !data) {
+  const handleScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
+    const { scrollTop, clientHeight, scrollHeight } = e.currentTarget;
+    if (scrollHeight - scrollTop - clientHeight < 50 && hasMore && !loading) {
+      setPage(prev => prev + 1);
+    }
+  }, [hasMore, loading]);
+
+  if (initialLoading) {
     return (
       <div className="flex items-center justify-center py-6">
         <div className="flex items-center gap-2 text-xs text-slate-400">
@@ -45,7 +73,7 @@ export function TrialTable({ filters }: Props) {
     );
   }
 
-  if (!data || data.trials.length === 0) {
+  if (trials.length === 0) {
     return (
       <div className="text-center py-6 text-xs text-slate-400">
         No trials found
@@ -54,18 +82,21 @@ export function TrialTable({ filters }: Props) {
   }
 
   return (
-    <div className="rounded-lg border border-slate-100 overflow-hidden max-h-[240px] overflow-y-auto">
+    <div
+      className="rounded-lg border border-slate-100 overflow-hidden max-h-[240px] overflow-y-auto"
+      onScroll={handleScroll}
+    >
       <table className="w-full">
         <thead>
-          <tr className="bg-slate-50 text-xs font-medium text-slate-500">
+          <tr className="bg-slate-50 text-xs font-medium text-slate-500 sticky top-0">
             <th className="text-left px-3 py-2">NCT ID</th>
             <th className="text-left px-3 py-2">Brief Title</th>
             <th className="text-left px-3 py-2">Condition</th>
           </tr>
         </thead>
         <tbody className="text-xs text-slate-700 divide-y divide-slate-100">
-          {data.trials.map((t, i) => (
-            <tr key={t.nct_id} className={`hover:bg-slate-50 transition-colors ${i % 2 === 0 ? "bg-slate-50/50" : ""}`}>
+          {trials.map((t, i) => (
+            <tr key={t.nct_id} className={`hover:bg-slate-50 transition-colors ${i % 2 === 0 ? "bg-slate-100" : ""}`}>
               <td className="px-3 py-2 whitespace-nowrap">
                 <a
                   href={`https://clinicaltrials.gov/study/${t.nct_id}`}
@@ -87,32 +118,12 @@ export function TrialTable({ filters }: Props) {
         </tbody>
       </table>
 
-      {/* Pagination */}
-      {data.total_pages > 1 && (
-        <div className="flex justify-between items-center px-3 py-2 border-t border-slate-100">
-          <button
-            onClick={() => setPage((p) => Math.max(1, p - 1))}
-            disabled={page <= 1}
-            className="text-xs text-slate-600 hover:text-slate-900 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          >
-            Previous
-          </button>
-          <span className="text-xs text-slate-400">
-            Page {data.page} of {data.total_pages.toLocaleString()}
-          </span>
-          <button
-            onClick={() => setPage((p) => Math.min(data.total_pages, p + 1))}
-            disabled={page >= data.total_pages}
-            className="text-xs text-slate-600 hover:text-slate-900 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          >
-            Next
-          </button>
-        </div>
-      )}
-
       {loading && (
-        <div className="absolute inset-0 bg-white/50 flex items-center justify-center">
-          <div className="w-3 h-3 rounded-full border-2 border-blue-400 border-t-transparent animate-spin" />
+        <div className="flex items-center justify-center py-2">
+          <div className="flex items-center gap-2 text-xs text-slate-400">
+            <div className="w-3 h-3 rounded-full border-2 border-blue-400 border-t-transparent animate-spin" />
+            Loading more...
+          </div>
         </div>
       )}
     </div>

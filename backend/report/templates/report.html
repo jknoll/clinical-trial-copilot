@@ -304,7 +304,7 @@
             Clinical Trial Compass — Personalized Briefing Report
         </div>
     </div>
-    <header style="display: flex; align-items: flex-start; justify-content: space-between;">
+    <header style="display: flex; align-items: center; justify-content: space-between;">
         <div>
             <h1>Clinical Trial Compass</h1>
             <p>Your Personalized Clinical Trial Briefing</p>
@@ -355,7 +355,7 @@
             <div class="profile-item">
                 <div class="label">Preferences</div>
                 <div class="value">
-                    {% if profile.preferences.phases %}Phases: {{ profile.preferences.phases | join(', ') }}{% endif %}
+                    {% if profile.preferences.phases %}{{ profile.preferences.phases | format_phases }}{% endif %}
                 </div>
             </div>
         </div>
@@ -393,10 +393,10 @@
             </div>
 
             {% if trial.qr_data_uri %}
-            <div style="display: flex; align-items: center; gap: 0.5rem; margin-top: 0.75rem;">
+            <div style="display: flex; flex-direction: column; align-items: center; gap: 0.25rem; margin-top: 0.75rem; width: fit-content;">
                 <img src="{{ trial.qr_data_uri }}" alt="QR code for {{ trial.nct_id }}"
                      style="width: auto; height: auto; max-width: 120px;">
-                <span style="font-size: 0.75rem; color: var(--slate-600); font-weight: 600;">Physician Shortcut</span>
+                <span style="font-size: 0.7rem; color: var(--slate-600); font-weight: 600;">Physician Shortcut</span>
             </div>
             {% endif %}
 
@@ -432,7 +432,7 @@
                 {% if trial.nearest_location.latitude is not none and trial.nearest_location.longitude is not none %}
                 <a href="https://www.google.com/maps/search/?api=1&query={{ trial.nearest_location.latitude }},{{ trial.nearest_location.longitude }}" target="_blank">
                     <img
-                        src="https://staticmap.openstreetmap.de/staticmap.php?center={{ trial.nearest_location.latitude }},{{ trial.nearest_location.longitude }}&zoom=13&size=270x270&markers={{ trial.nearest_location.latitude }},{{ trial.nearest_location.longitude }},red-pushpin"
+                        src="{{ trial.map_data_uri }}"
                         alt="Map for {{ trial.nct_id }}"
                         width="270" height="270"
                         style="border: 1px solid var(--slate-200); border-radius: 8px;"

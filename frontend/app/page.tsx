@@ -29,35 +29,28 @@ const EMPTY_FILTERS: FacetedFilters = {
   distance_miles: null,
 };
 
-const TAGLINES_STATIC = ["One that fits.", "Every patient deserves a match."];
-
-function TaglineCycler({ total }: { total: number }) {
-  const [index, setIndex] = useState(0);
-  const [visible, setVisible] = useState(true);
-  const taglineCount = TAGLINES_STATIC.length + 1; // +1 for the animated count tagline
+function SequentialReveal({ total }: { total: number }) {
+  const [show2, setShow2] = useState(false);
+  const [show3, setShow3] = useState(false);
 
   useEffect(() => {
-    const cycle = setInterval(() => {
-      setVisible(false);
-      setTimeout(() => {
-        setIndex((prev) => (prev + 1) % taglineCount);
-        setVisible(true);
-      }, 1800);
-    }, 7800);
-    return () => clearInterval(cycle);
-  }, [taglineCount]);
+    const t1 = setTimeout(() => setShow2(true), 2500);
+    const t2 = setTimeout(() => setShow3(true), 4500);
+    return () => { clearTimeout(t1); clearTimeout(t2); };
+  }, []);
 
   return (
-    <span
-      style={{ transition: "opacity 1.8s ease-in-out", opacity: visible ? 1 : 0 }}
-      className="inline-block"
-    >
-      {index === 0 ? (
-        <><AnimatedCount target={total || 571118} /> Trials.</>
-      ) : (
-        TAGLINES_STATIC[index - 1]
-      )}
-    </span>
+    <div className="flex flex-col items-center gap-1">
+      <span className="text-xl font-semibold text-slate-900">
+        <AnimatedCount target={total || 571118} /> Trials.
+      </span>
+      <span className={`text-lg font-medium text-slate-700 transition-opacity duration-1000 ${show2 ? "opacity-100" : "opacity-0"}`}>
+        One that fits.
+      </span>
+      <span className={`text-base text-slate-500 transition-opacity duration-1000 ${show3 ? "opacity-100" : "opacity-0"}`}>
+        Every patient deserves a match.
+      </span>
+    </div>
   );
 }
 
@@ -114,6 +107,7 @@ export default function Home() {
   const [reportUrls, setReportUrls] = useState<{ html: string; pdf: string } | null>(null);
   const [healthImported, setHealthImported] = useState(false);
   const [healthSummary, setHealthSummary] = useState<ImportSummary | null>(null);
+  const [contextPanelVisible, setContextPanelVisible] = useState(false);
 
   // Track ongoing fetch to debounce
   const fetchAbortRef = useRef<AbortController | null>(null);
@@ -369,6 +363,7 @@ export default function Home() {
               backendUrl={API_URL}
               sqlQuery={stats?.sql_query}
               sqlParams={stats?.sql_params}
+              onContextPanelToggle={setContextPanelVisible}
             />
           ) : (
             <div className="flex items-center justify-center h-full">
@@ -384,7 +379,7 @@ export default function Home() {
       </main>
 
       {reportUrls && (
-        <div className="fixed bottom-4 right-4 z-40 bg-white rounded-xl shadow-lg border border-slate-200 p-4 flex items-center gap-3">
+        <div className={`fixed ${contextPanelVisible ? 'bottom-[160px]' : 'bottom-4'} right-4 z-40 bg-white rounded-xl shadow-lg border border-slate-200 p-4 flex items-center gap-3 transition-all`}>
           <FileText className="w-6 h-6 text-blue-600" />
           <div>
             <p className="text-sm font-medium">Your Report</p>
@@ -403,8 +398,11 @@ export default function Home() {
           <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden modal-enter">
             <div className="h-1 bg-gradient-to-r from-blue-600 to-indigo-600" />
             <div className="p-8 text-center">
-            <img src="/logo.png" alt="Clinical Trial Compass" className="w-72 h-72 mx-auto -mt-16 -mb-12 object-contain mix-blend-multiply" />
-            <h2 className="text-xl font-semibold text-slate-900 mb-3"><TaglineCycler total={stats?.total ?? 0} /></h2>
+            <img src="/logo.png" alt="Clinical Trial Compass"
+              className="w-72 h-72 mx-auto -mt-16 -mb-12 object-contain"
+              style={{ maskImage: "radial-gradient(ellipse 80% 80% at center, black 50%, transparent 100%)", WebkitMaskImage: "radial-gradient(ellipse 80% 80% at center, black 50%, transparent 100%)" }}
+            />
+            <div className="mb-3"><SequentialReveal total={stats?.total ?? 0} /></div>
             <p className="text-sm text-slate-700 mb-4 leading-relaxed">
               Clinical Trial Compass helps you find relevant clinical trials through a guided
               conversation. We&apos;ll narrow down trials that match your condition, location,
@@ -419,7 +417,7 @@ export default function Home() {
                 <img src="/ctg-logo.svg" alt="" className="w-9 h-9 shrink-0" />
                 <div>
                   <div className="text-xs font-semibold text-slate-800">ClinicalTrials.gov</div>
-                  <div className="text-xs text-slate-500"><AnimatedCount target={stats?.total ?? 0} /> studies</div>
+                  <div className="text-xs text-slate-500"><AnimatedCount target={stats?.total ?? 571118} /> studies</div>
                 </div>
               </a>
               <a href="https://open.fda.gov" target="_blank" rel="noopener noreferrer"

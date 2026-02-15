@@ -5,10 +5,12 @@ from __future__ import annotations
 import base64
 import io
 import logging
+import re
 from datetime import datetime
 from pathlib import Path
 
 import qrcode
+import staticmap
 from jinja2 import Environment, FileSystemLoader
 
 from backend.models.patient import PatientProfile
@@ -17,6 +19,36 @@ from backend.models.trial import MatchedTrial
 logger = logging.getLogger(__name__)
 
 TEMPLATES_DIR = Path(__file__).parent / "templates"
+
+
+def _format_phases(phases: list[str]) -> str:
+    """Collapse phases: ['Phase 1', 'Phase 2', 'Phase 3', 'Phase 4'] -> 'Phases 1-4'
+       Non-consecutive: ['Phase 1', 'Phase 3'] -> 'Phases 1, 3'
+    """
+    nums = sorted(set(int(m.group()) for p in phases if (m := re.search(r'\d+', p))))
+    if not nums:
+        return ", ".join(p.title() for p in phases)
+    if len(nums) == 1:
+        return f"Phase {nums[0]}"
+    if nums == list(range(nums[0], nums[-1] + 1)):
+        return f"Phases {nums[0]}-{nums[-1]}"
+    return f"Phases {', '.join(str(n) for n in nums)}"
+
+
+def _generate_map_data_uri(lat: float, lon: float, zoom: int = 13, width: int = 270, height: int = 270) -> str:
+    """Generate a static map image as a base64 PNG data URI."""
+    try:
+        m = staticmap.StaticMap(width, height)
+        marker = staticmap.CircleMarker((lon, lat), 'red', 12)
+        m.add_marker(marker)
+        image = m.render(zoom=zoom, center=[lon, lat])
+        buf = io.BytesIO()
+        image.save(buf, format="PNG")
+        b64 = base64.b64encode(buf.getvalue()).decode()
+        return f"data:image/png;base64,{b64}"
+    except Exception:
+        logger.warning("Failed to generate static map for (%s, %s)", lat, lon)
+        return ""
 
 
 def _generate_qr_data_uri(url: str, size: int = 4) -> str:
@@ -43,6 +75,7 @@ def generate_report(
         loader=FileSystemLoader(str(TEMPLATES_DIR)),
         autoescape=True,
     )
+    env.filters['format_phases'] = _format_phases
     template = env.get_template("report.html")
 
     if executive_summary is None:
@@ -65,6 +98,14 @@ def generate_report(
         trial["qr_data_uri"] = _generate_qr_data_uri(
             f"https://clinicaltrials.gov/study/{trial['nct_id']}"
         )
+        # Generate static map data URI for nearest location
+        loc = trial.get("nearest_location") or {}
+        if loc.get("latitude") is not None and loc.get("longitude") is not None:
+            trial["map_data_uri"] = _generate_map_data_uri(
+                float(loc["latitude"]), float(loc["longitude"])
+            )
+        else:
+            trial["map_data_uri"] = ""
 
     html = template.render(
         profile=profile.model_dump(),

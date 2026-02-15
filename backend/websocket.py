@@ -101,6 +101,15 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                 state.selected_trial_ids = selected_ids
                 session_mgr.save_state(session_id, state)
                 user_content = f"I've selected these trials for detailed analysis: {', '.join(selected_ids)}"
+            elif msg_type == "config_update":
+                # Per-session model/compaction configuration
+                config = orchestrator.configure(
+                    model=data.get("model"),
+                    context_window=data.get("context_window"),
+                    compaction_disabled=data.get("compaction_disabled"),
+                )
+                await websocket.send_json({"type": "config_ack", **config})
+                continue
             else:
                 user_content = data.get("content", str(data))
 

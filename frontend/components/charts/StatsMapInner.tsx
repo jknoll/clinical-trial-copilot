@@ -248,7 +248,7 @@ function MapCenterOnUser({ location }: { location: { latitude: number; longitude
   useEffect(() => {
     if (location && !hasCentered.current) {
       hasCentered.current = true;
-      map.setView([location.latitude, location.longitude], 4, { animate: false });
+      map.setView([location.latitude, location.longitude], 2, { animate: false });
     }
   }, [location, map]);
   return null;
@@ -341,8 +341,14 @@ export function StatsMapInner({ data, stateData, userLocation, flyTo, travelDist
   const [countries, setCountries] = useState<FeatureCollection | null>(cachedCountries);
   const [states, setStates] = useState<FeatureCollection | null>(cachedStates);
 
-  // Show state-level data when state data is available (finest grain)
-  const mode = stateData && Object.keys(stateData).length > 0 ? "states" : "countries";
+  // Start at country level; switch to state level when flyTo fires (user confirms location)
+  const [mode, setMode] = useState<"countries" | "states">("countries");
+
+  useEffect(() => {
+    if (flyTo && stateData && Object.keys(stateData).length > 0) {
+      setMode("states");
+    }
+  }, [flyTo, stateData]);
 
   useEffect(() => {
     if (!countries) {

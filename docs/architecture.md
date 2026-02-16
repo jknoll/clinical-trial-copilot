@@ -73,12 +73,25 @@ Max iterations: 15 (safety limit to prevent infinite loops)
 ```
 
 **Key parameters:**
-- **Model:** Configurable via `settings.model` (default: `claude-opus-4-6`)
+- **Model:** Default from `settings.model` (`claude-opus-4-6`), overridable per-session via `configure()`
 - **Max tokens per turn:** 16,384
 - **Max iterations per message:** 15
-- **Context windows:** 200,000 tokens (Opus 4.6, Sonnet 4.5, Haiku 4.5)
+- **Context windows:** 200,000 tokens default (Opus 4.6, Sonnet 4.5, Haiku 4.5); 1,000,000 tokens available for Opus 4.6 via extended-context beta
 
 **Turn tracking:** The orchestrator tracks `_turn_count` across the session and emits `context_update` events so the frontend can display context usage.
+
+### Per-Session Configuration
+
+Each `AgentOrchestrator` instance carries its own model and context settings, initialized from the global `settings.model` default but overridable at runtime:
+
+| Instance Variable | Default | Description |
+|---|---|---|
+| `_model` | `settings.model` | Claude model ID for API calls |
+| `_context_window` | 200,000 | Token limit for context tracking |
+| `_beta_headers` | `{}` | Extra HTTP headers (e.g., `anthropic-beta` for extended context) |
+| `_compaction_disabled` | `False` | When `True`, skips conversation history trimming |
+
+The `configure()` method updates these values and returns the current config. When `_context_window` exceeds 200,000, the orchestrator automatically adds the `extended-context-2025-01-24` beta header to API calls.
 
 ---
 
@@ -124,6 +137,7 @@ Large tool results are managed to prevent context bloat:
 | `widget_response` | `selections[]`, `question` | User responds to an intake widget |
 | `trial_selection` | `trialIds[]` | User selects trials for the report |
 | `system_hint` | `content` (text) | Frontend sends contextual hints (e.g., zero results warning) |
+| `config_update` | `model`, `context_window`, `compaction_disabled` | Frontend requests per-session config change |
 
 ### Server → Client
 
@@ -136,10 +150,13 @@ Large tool results are managed to prevent context bloat:
 | `status` | `phase`, `message` | Progress indicator with spinner |
 | `report_ready` | `session_id` | Report is available for viewing |
 | `filters_update` | Filter fields | Update stats panel filters |
-| `context_update` | `turn_count`, usage info | Context window usage tracking |
+| `context_update` | `turn_count`, usage info, `model`, `context_window`, `compaction_disabled` | Context window usage tracking |
+| `config_ack` | `model`, `context_window`, `compaction_disabled` | Acknowledges a `config_update` with applied values |
 | `done` | — | Processing complete for this message |
 | `error` | `message` | Error occurred during processing |
 | `health_imported` | `session_id` | Apple Health import completed |
+
+**Config update flow:** `config_update` messages are handled directly by the WebSocket handler — they call `orchestrator.configure()` and respond with `config_ack` without passing through Claude's `process_message` loop.
 
 ---
 
@@ -188,7 +205,7 @@ The system prompt is rebuilt on every Claude API call from four components:
 
 ### Conversation History Trimming
 
-Long conversations are trimmed to stay within context limits:
+Long conversations are trimmed to stay within context limits. Trimming can be disabled per-session via the `/no-compaction` slash command, which sets `_compaction_disabled = True` on the orchestrator — useful during development or when maximum conversation context is needed (e.g., with the 1M context window).
 
 | Phase | Threshold | Kept |
 |---|---|---|
@@ -275,6 +292,26 @@ GET /api/sessions/{id}/report.pdf
 ```
 
 **Graceful degradation:** If Playwright is not installed (common in development), the PDF endpoint returns the HTML report with an informational banner instead of failing.
+
+---
+
+## Frontend Slash Commands
+
+The chat input supports slash commands that are handled entirely on the frontend — they never reach Claude's `process_message` loop. Commands are autocompleted as the user types.
+
+| Command | Action |
+|---|---|
+| `/test` | Runs the automated Ewing Sarcoma demo flow (6 phases) |
+| `/speedtest` | Runs a faster multiple myeloma demo |
+| `/restart` | Clears session state and reconnects |
+| `/context` | Toggles the context panel overlay |
+| `/health-import` | Triggers Apple Health file import |
+| `/model-opus` | Switches session to Opus 4.6 (200k context) |
+| `/model-sonnet` | Switches session to Sonnet 4.5 (200k context) |
+| `/model-opus-1m` | Switches session to Opus 4.6 (1M context, auto-opens context panel) |
+| `/no-compaction` | Toggles conversation history trimming on/off |
+
+Model and compaction commands send a `config_update` WebSocket message to the backend and display a local confirmation in the chat. The backend responds with `config_ack` to confirm the applied settings.
 
 ---
 

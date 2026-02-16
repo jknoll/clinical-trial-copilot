@@ -1,6 +1,12 @@
 # Tool Reference
 
-The orchestrator exposes 17 tools to Claude via the Anthropic tool_use API. Each tool is an async Python function with a JSON Schema definition in [`backend/agents/orchestrator.py`](../backend/agents/orchestrator.py). Tools are not true MCP servers — they're function calls within the same process, chosen for simplicity in a monolith deployment.
+The orchestrator exposes 17 tools to Claude via the Anthropic tool_use API. Each tool is an async Python function with a JSON Schema definition in [`backend/agents/orchestrator.py`](../backend/agents/orchestrator.py).
+
+### MCP-Style Architecture
+
+The tool implementations live in `backend/mcp_servers/` and follow the naming convention of the Model Context Protocol (MCP), but they are **not true MCP servers** — they're in-process function calls invoked directly by the orchestrator. This was chosen for simplicity in a monolith deployment: no inter-process communication, no serialization overhead, and a single Python process to debug. However, the module structure (`mcp_servers/clinical_trials.py`, `mcp_servers/fda_data.py`, etc.) is organized so that these tools could be extracted into standalone MCP servers if the architecture needed to scale beyond a single process.
+
+Each tool module wraps one external API (or internal capability) and exposes async functions that the orchestrator calls when Claude requests a `tool_use`. Tool schemas are defined in the orchestrator as Anthropic-format JSON, and tool dispatch is a simple name → function mapping.
 
 For how tools are executed at runtime (heartbeats, truncation, the agentic loop), see [Architecture](architecture.md). For which external APIs each tool calls, see [Data Sources](data-sources.md).
 
@@ -28,6 +34,8 @@ Search ClinicalTrials.gov for trials matching the patient's criteria.
 | `max_results` | integer | no | 50 | Maximum results to return |
 
 **Returns:** Array of trial summaries (NCT ID, title, phase, status, interventions, sponsor, enrollment, location).
+
+**Post-search validation:** Results are filtered by `_condition_matches()`, which checks that every significant word (3+ characters) from the `condition` query appears in each trial's `conditions` list. This prevents ClinicalTrials.gov's fuzzy `query.cond` matching from returning irrelevant trials (e.g., searching "Ewing Sarcoma" no longer returns osteosarcoma or rhabdomyosarcoma trials). Trials with empty conditions lists are preserved (benefit of the doubt).
 
 ### `get_trial_details`
 
@@ -266,10 +274,12 @@ Get a summary of the patient's imported Apple Health data.
 
 | Category | Count | External API | Implementation Module |
 |---|---|---|---|
-| Clinical Trials | 4 | ClinicalTrials.gov v2 | `mcp_servers/clinical_trials.py` |
-| Geocoding | 2 | Open-Meteo | `mcp_servers/geocoding.py` |
-| FDA | 2 | openFDA | `mcp_servers/fda_data.py` |
-| Session & Profile | 2 | (internal) | `agents/orchestrator.py` |
-| UI Emission | 4 | (WebSocket push) | `agents/orchestrator.py` |
-| Analysis & Report | 3 | (internal + Apple Health) | `agents/orchestrator.py`, `mcp_servers/apple_health.py` |
+| Clinical Trials | 4 | ClinicalTrials.gov v2 | [`mcp_servers/clinical_trials.py`](../backend/mcp_servers/clinical_trials.py) |
+| Geocoding | 2 | Open-Meteo | [`mcp_servers/geocoding.py`](../backend/mcp_servers/geocoding.py) |
+| FDA | 2 | openFDA | [`mcp_servers/fda_data.py`](../backend/mcp_servers/fda_data.py) |
+| Session & Profile | 2 | (internal) | [`agents/orchestrator.py`](../backend/agents/orchestrator.py) |
+| UI Emission | 4 | (WebSocket push) | [`agents/orchestrator.py`](../backend/agents/orchestrator.py) |
+| Analysis & Report | 3 | (internal + Apple Health) | [`agents/orchestrator.py`](../backend/agents/orchestrator.py), [`mcp_servers/apple_health.py`](../backend/mcp_servers/apple_health.py) |
 | **Total** | **17** | | |
+
+All `mcp_servers/*` modules follow the MCP naming convention but run in-process. See [MCP-Style Architecture](#mcp-style-architecture) above for rationale.

@@ -32,10 +32,15 @@ def check_playwright_browsers() -> bool:
             ["python3", "-m", "playwright", "install", "--dry-run"],
             capture_output=True, text=True, timeout=10,
         )
-        # Fallback: check the default Chromium install location directly
-        cache_dir = pathlib.Path.home() / ".cache" / "ms-playwright"
+        # Fallback: check the default Chromium install locations
+        import sys
+        if sys.platform == "darwin":
+            cache_dir = pathlib.Path.home() / "Library" / "Caches" / "ms-playwright"
+        else:
+            cache_dir = pathlib.Path.home() / ".cache" / "ms-playwright"
         if cache_dir.exists():
             chrome_bins = list(cache_dir.glob("chromium-*/chrome-linux*/chrome")) + \
+                          list(cache_dir.glob("chromium-*/chrome-mac-*/Google Chrome for Testing.app")) + \
                           list(cache_dir.glob("chromium-*/chrome-*/chrome")) + \
                           list(cache_dir.glob("chromium-*/chrome-*/chrome.exe"))
             if chrome_bins and any(b.exists() for b in chrome_bins):

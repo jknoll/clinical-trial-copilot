@@ -35,7 +35,7 @@ def _format_phases(phases: list[str]) -> str:
     return f"Phases {', '.join(str(n) for n in nums)}"
 
 
-def _generate_map_data_uri(lat: float, lon: float, zoom: int = 13, width: int = 270, height: int = 270) -> str:
+def _generate_map_data_uri(lat: float, lon: float, zoom: int = 11, width: int = 270, height: int = 270) -> str:
     """Generate a static map image as a base64 PNG data URI."""
     try:
         m = staticmap.StaticMap(width, height)

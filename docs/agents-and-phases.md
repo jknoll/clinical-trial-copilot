@@ -81,6 +81,7 @@ The trade-off is that very long sessions could approach context limits. This is 
   4. Geographic expansion (wider radius or no geographic filter)
   5. Phase-specific search (targeting patient's preferred trial phases)
 - Deduplicates results by NCT ID across all strategies
+- Post-fetch condition validation filters out irrelevant trials returned by ClinicalTrials.gov's fuzzy matching (see [Data Sources — ClinicalTrials.gov](data-sources.md#clinicaltrialsgov-api-v2))
 - Reports total unique trials found and search strategy summary
 - Saves combined results to session state
 

@@ -568,6 +568,31 @@ class AgentOrchestrator:
         self._tools_executed: int = 0
         # Turn counter for context usage tracking
         self._turn_count: int = 0
+        # Per-session model configuration (defaults from global settings)
+        self._model: str = settings.model
+        self._context_window: int = MODEL_CONTEXT_WINDOWS.get(settings.model, 200_000)
+        self._beta_headers: dict[str, str] = {}
+        self._compaction_disabled: bool = False
+
+    def configure(self, model: str | None = None, context_window: int | None = None,
+                  compaction_disabled: bool | None = None) -> dict[str, Any]:
+        """Update per-session configuration. Returns summary of new config."""
+        if model is not None:
+            self._model = model
+            self._context_window = MODEL_CONTEXT_WINDOWS.get(model, 200_000)
+        if context_window is not None:
+            self._context_window = context_window
+            if context_window > 200_000:
+                self._beta_headers["anthropic-beta"] = "interleaved-thinking-2025-05-14,extended-context-2025-01-24"
+            else:
+                self._beta_headers.pop("anthropic-beta", None)
+        if compaction_disabled is not None:
+            self._compaction_disabled = compaction_disabled
+        return {
+            "model": self._model,
+            "context_window": self._context_window,
+            "compaction_disabled": self._compaction_disabled,
+        }
 
     def _extract_intake_answer(self, user_message: str) -> None:
         """Parse structured widget responses and free-text messages during intake.
@@ -910,6 +935,9 @@ class AgentOrchestrator:
         Keeps the last ~20 messages, prepending a synthetic context note.
         Ensures tool_use/tool_result pairs are never split at the boundary.
         """
+        if self._compaction_disabled:
+            return
+
         threshold = 24
         if state and state.phase == SessionPhase.INTAKE and not state.profile_complete:
             threshold = 50
@@ -1006,11 +1034,12 @@ class AgentOrchestrator:
             tool_uses: list[dict] = []
 
             async with self.client.messages.stream(
-                model=settings.model,
+                model=self._model,
                 max_tokens=16384,
                 system=full_system,
                 tools=TOOLS,
                 messages=self.conversation_history,
+                extra_headers=self._beta_headers or None,
             ) as stream:
                 current_tool_use = None
                 _tool_json_len = 0  # Track JSON size for progress updates
@@ -1077,8 +1106,9 @@ class AgentOrchestrator:
                     "type": "context_update",
                     "input_tokens": response.usage.input_tokens,
                     "output_tokens": response.usage.output_tokens,
-                    "model": settings.model,
-                    "context_window": MODEL_CONTEXT_WINDOWS.get(settings.model, 200_000),
+                    "model": self._model,
+                    "context_window": self._context_window,
+                    "compaction_disabled": self._compaction_disabled,
                     "turn": self._turn_count,
                 }
 

@@ -20,6 +20,10 @@ const SLASH_COMMANDS = [
   { command: "/query", label: "/query", description: "Open SQL query editor" },
   { command: "/context", label: "/context", description: "Show model & context usage" },
   { command: "/health-import", label: "/health-import", description: "Import demo health data" },
+  { command: "/model-opus", label: "/model-opus", description: "Switch to Opus 4.6 (200k)" },
+  { command: "/model-sonnet", label: "/model-sonnet", description: "Switch to Sonnet 4.5 (200k)" },
+  { command: "/model-opus-1m", label: "/model-opus-1m", description: "Switch to Opus 4.6 (1M context)" },
+  { command: "/no-compaction", label: "/no-compaction", description: "Toggle history compaction" },
 ];
 
 interface DetectedLocation {
@@ -43,6 +47,7 @@ interface Props {
   sqlQuery?: string;
   sqlParams?: string[];
   onContextPanelToggle?: (visible: boolean) => void;
+  reportVisible?: boolean;
 }
 
 // Demo answer lookup — keyword-based, each entry can only be used once.
@@ -101,7 +106,7 @@ function findDemoAnswer(text: string): string | null {
   return "Yes, let's continue";
 }
 
-export function Chat({ sessionId, onFiltersChanged, detectedLocation, zeroResults, demoRef, onLocationConfirmed, onLocationOverride, onReportReady, healthImported, onHealthImported, backendUrl, sqlQuery, sqlParams, onContextPanelToggle }: Props) {
+export function Chat({ sessionId, onFiltersChanged, detectedLocation, zeroResults, demoRef, onLocationConfirmed, onLocationOverride, onReportReady, healthImported, onHealthImported, backendUrl, sqlQuery, sqlParams, onContextPanelToggle, reportVisible }: Props) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
@@ -125,12 +130,14 @@ export function Chat({ sessionId, onFiltersChanged, detectedLocation, zeroResult
   const [autoImportDemo, setAutoImportDemo] = useState(false);
   const [showQueryEditor, setShowQueryEditor] = useState(false);
   const [showContextPanel, setShowContextPanel] = useState(false);
+  const noCompactionRef = useRef(false);
   const [contextInfo, setContextInfo] = useState<{
     model: string;
     inputTokens: number;
     outputTokens: number;
     contextWindow: number;
     turn: number;
+    compactionDisabled: boolean;
   } | null>(null);
   const [showSlashMenu, setShowSlashMenu] = useState(false);
   const [slashMenuIndex, setSlashMenuIndex] = useState(0);
@@ -489,6 +496,16 @@ export function Chat({ sessionId, onFiltersChanged, detectedLocation, zeroResult
         outputTokens: (prev?.outputTokens ?? 0) + (data.output_tokens as number),
         contextWindow: data.context_window as number,
         turn: data.turn as number,
+        compactionDisabled: (data.compaction_disabled as boolean) ?? prev?.compactionDisabled ?? false,
+      }));
+    } else if (type === "config_ack") {
+      setContextInfo(prev => ({
+        model: data.model as string,
+        inputTokens: prev?.inputTokens ?? 0,
+        outputTokens: prev?.outputTokens ?? 0,
+        contextWindow: data.context_window as number,
+        turn: prev?.turn ?? 0,
+        compactionDisabled: (data.compaction_disabled as boolean) ?? false,
       }));
     } else if (type === "done") {
       setIsTyping(false);
@@ -639,6 +656,83 @@ export function Chat({ sessionId, onFiltersChanged, detectedLocation, zeroResult
       setInput("");
       setShowSlashMenu(false);
       setAutoImportDemo(true);
+      return;
+    }
+
+    // /model-opus: switch to Opus 4.6 (200k)
+    if (text.toLowerCase() === "/model-opus") {
+      setInput("");
+      setShowSlashMenu(false);
+      wsRef.current.send({
+        type: "config_update",
+        model: "claude-opus-4-6",
+        context_window: 200000,
+      });
+      setMessages(prev => [...prev, {
+        id: nextMsgId("sys"),
+        role: "assistant" as const,
+        content: "Switched to **Opus 4.6** (200k context)",
+        messageType: "text",
+        timestamp: Date.now(),
+      }]);
+      return;
+    }
+
+    // /model-sonnet: switch to Sonnet 4.5 (200k)
+    if (text.toLowerCase() === "/model-sonnet") {
+      setInput("");
+      setShowSlashMenu(false);
+      wsRef.current.send({
+        type: "config_update",
+        model: "claude-sonnet-4-5-20250929",
+        context_window: 200000,
+      });
+      setMessages(prev => [...prev, {
+        id: nextMsgId("sys"),
+        role: "assistant" as const,
+        content: "Switched to **Sonnet 4.5** (200k context)",
+        messageType: "text",
+        timestamp: Date.now(),
+      }]);
+      return;
+    }
+
+    // /model-opus-1m: switch to Opus 4.6 with 1M context window
+    if (text.toLowerCase() === "/model-opus-1m") {
+      setInput("");
+      setShowSlashMenu(false);
+      wsRef.current.send({
+        type: "config_update",
+        model: "claude-opus-4-6",
+        context_window: 1000000,
+      });
+      setMessages(prev => [...prev, {
+        id: nextMsgId("sys"),
+        role: "assistant" as const,
+        content: "Switched to **Opus 4.6** (1M context window)",
+        messageType: "text",
+        timestamp: Date.now(),
+      }]);
+      setShowContextPanel(true);
+      return;
+    }
+
+    // /no-compaction: toggle history compaction
+    if (text.toLowerCase() === "/no-compaction") {
+      setInput("");
+      setShowSlashMenu(false);
+      noCompactionRef.current = !noCompactionRef.current;
+      wsRef.current.send({
+        type: "config_update",
+        compaction_disabled: noCompactionRef.current,
+      });
+      setMessages(prev => [...prev, {
+        id: nextMsgId("sys"),
+        role: "assistant" as const,
+        content: `Context compaction **${noCompactionRef.current ? "disabled" : "enabled"}**`,
+        messageType: "text",
+        timestamp: Date.now(),
+      }]);
       return;
     }
 
@@ -985,7 +1079,7 @@ export function Chat({ sessionId, onFiltersChanged, detectedLocation, zeroResult
 
       {/* Context usage floating panel */}
       {showContextPanel && (
-        <div className="absolute bottom-20 right-4 z-20 bg-slate-900/90 text-white rounded-lg p-3 text-xs backdrop-blur shadow-lg min-w-[220px]">
+        <div className={`absolute ${reportVisible ? 'bottom-28' : 'bottom-20'} right-4 z-20 bg-slate-900/90 text-white rounded-lg p-3 text-xs backdrop-blur shadow-lg min-w-[220px]`}>
           {contextInfo ? (
             <>
               <div className="flex items-center justify-between mb-2">
@@ -1017,6 +1111,12 @@ export function Chat({ sessionId, onFiltersChanged, detectedLocation, zeroResult
                 <div className="flex justify-between text-slate-300">
                   <span>Turn</span>
                   <span>{contextInfo.turn}</span>
+                </div>
+                <div className="flex justify-between text-slate-300">
+                  <span>Compaction</span>
+                  <span className={contextInfo.compactionDisabled ? "text-amber-400" : "text-emerald-400"}>
+                    {contextInfo.compactionDisabled ? "Disabled" : "Enabled"}
+                  </span>
                 </div>
                 <div className="text-slate-500 text-[10px] mt-1">
                   {((contextInfo.inputTokens / contextInfo.contextWindow) * 100).toFixed(1)}% context used

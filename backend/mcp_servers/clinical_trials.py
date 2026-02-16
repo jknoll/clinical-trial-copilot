@@ -96,6 +96,27 @@ def _parse_study_summary(study: dict) -> dict:
     }
 
 
+def _condition_matches(trial: dict, query_condition: str) -> bool:
+    """Check if a trial's conditions list is relevant to the searched condition.
+
+    Uses keyword overlap: each significant word (3+ chars) from the query
+    must appear in at least one of the trial's condition strings.
+    """
+    trial_conditions = trial.get("conditions", [])
+    if not trial_conditions:
+        return True  # No conditions listed — don't filter out
+
+    # Normalize: lowercase everything
+    conditions_text = " ".join(c.lower() for c in trial_conditions)
+    query_words = [w.lower() for w in query_condition.split() if len(w) >= 3]
+
+    if not query_words:
+        return True
+
+    # All significant query words must appear in the conditions text
+    return all(word in conditions_text for word in query_words)
+
+
 async def search_trials(
     condition: str,
     intervention: str | None = None,
@@ -171,7 +192,9 @@ async def search_trials(
             for study in studies:
                 if len(all_studies) >= max_results:
                     break
-                all_studies.append(_parse_study_summary(study))
+                parsed = _parse_study_summary(study)
+                if _condition_matches(parsed, condition):
+                    all_studies.append(parsed)
 
             next_page_token = data.get("nextPageToken")
             if not next_page_token:

@@ -57,9 +57,16 @@ function SequentialReveal({ total }: { total: number }) {
 function AnimatedCount({ target }: { target: number }) {
   const [count, setCount] = useState(0);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const hasAnimated = useRef(false);
 
   useEffect(() => {
     if (target <= 0) return;
+    // Only animate once — subsequent target changes just snap to the value
+    if (hasAnimated.current) {
+      setCount(target);
+      return;
+    }
+    hasAnimated.current = true;
     setCount(0);
     // Small delay so animation is visible after modal renders
     const delay = setTimeout(() => {
@@ -364,6 +371,7 @@ export default function Home() {
               sqlQuery={stats?.sql_query}
               sqlParams={stats?.sql_params}
               onContextPanelToggle={setContextPanelVisible}
+              reportVisible={!!reportUrls}
             />
           ) : (
             <div className="flex items-center justify-center h-full">
@@ -379,7 +387,7 @@ export default function Home() {
       </main>
 
       {reportUrls && (
-        <div className={`fixed ${contextPanelVisible ? 'bottom-[160px]' : 'bottom-4'} right-4 z-40 bg-white rounded-xl shadow-lg border border-slate-200 p-4 flex items-center gap-3 transition-all`}>
+        <div className="fixed bottom-4 right-4 z-40 bg-white rounded-xl shadow-lg border border-slate-200 p-4 flex items-center gap-3 transition-all">
           <FileText className="w-6 h-6 text-blue-600" />
           <div>
             <p className="text-sm font-medium">Your Report</p>
@@ -400,7 +408,7 @@ export default function Home() {
             <div className="p-8 text-center">
             <img src="/logo.png" alt="Clinical Trial Compass"
               className="w-72 h-72 mx-auto -mt-16 -mb-12 object-contain"
-              style={{ maskImage: "radial-gradient(ellipse 80% 80% at center, black 50%, transparent 100%)", WebkitMaskImage: "radial-gradient(ellipse 80% 80% at center, black 50%, transparent 100%)" }}
+              style={{ maskImage: "radial-gradient(ellipse 70% 60% at center 42%, black 18%, rgba(0,0,0,0.3) 48%, transparent 62%)", WebkitMaskImage: "radial-gradient(ellipse 70% 60% at center 42%, black 18%, rgba(0,0,0,0.3) 48%, transparent 62%)" }}
             />
             <div className="mb-3"><SequentialReveal total={stats?.total ?? 0} /></div>
             <p className="text-sm text-slate-700 mb-4 leading-relaxed">

@@ -29,6 +29,8 @@ Clinical Trial Navigator pulls from five external data sources. No single source
 - Location results are limited to 10 per trial (5 shown in summaries)
 - No authentication required; no explicit rate limit (but respectful pacing is expected)
 
+**Condition validation:** The ClinicalTrials.gov `query.cond` parameter uses fuzzy matching — searching "Ewing Sarcoma" can return trials for osteosarcoma, rhabdomyosarcoma, and other loosely related conditions. To prevent this, `search_trials` applies a post-fetch `_condition_matches()` filter that requires every significant word (3+ characters) from the search query to appear in each trial's `conditions` field. This ensures results are genuinely relevant while preserving trials that have no conditions listed.
+
 ## openFDA API
 
 **What:** The U.S. FDA's public API for drug adverse events, labels, recalls, and device reports.

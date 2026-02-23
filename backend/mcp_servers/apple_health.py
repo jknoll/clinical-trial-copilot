@@ -21,7 +21,6 @@ import logging
 import zipfile
 from collections import defaultdict
 from datetime import datetime, timedelta
-from io import BytesIO
 from pathlib import Path
 from typing import IO, BinaryIO
 from xml.etree.ElementTree import iterparse

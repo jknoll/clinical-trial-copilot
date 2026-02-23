@@ -11,8 +11,6 @@ No authentication required for ClinicalTrials.gov or geocoding.
 
 import re
 
-import pytest
-
 from backend.mcp_servers.clinical_trials import (
     get_eligibility_criteria,
     get_trial_details,

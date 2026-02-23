@@ -35,7 +35,7 @@ export function DiseaseBar({ data, activeCondition, userCondition }: Props) {
     name: titleCase(d.condition),
     value: d.count,
     matches: !needle || d.condition.toLowerCase().includes(needle),
-    isUserCondition: !!(d as any).isUserCondition,
+    isUserCondition: !!d.isUserCondition,
   }));
 
   const chartHeight = entries.length * 21 + 28;
@@ -50,8 +50,8 @@ export function DiseaseBar({ data, activeCondition, userCondition }: Props) {
             dataKey="name"
             width={120}
             interval={0}
-            tick={(props: any) => {
-              const { x, y, payload } = props;
+            tick={(props: { x: string | number; y: string | number; payload: { value: string } }) => {
+              const x = Number(props.x), y = Number(props.y), { payload } = props;
               const entry = entries.find((e) => e.name === payload.value);
               const bright = entry?.matches ?? true;
               const isUser = entry?.isUserCondition ?? false;

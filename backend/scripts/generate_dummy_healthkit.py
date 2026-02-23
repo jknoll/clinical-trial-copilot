@@ -25,9 +25,9 @@ import random
 import uuid
 import zipfile
 from datetime import datetime, timedelta, timezone
-from pathlib import Path
-from xml.etree.ElementTree import Element, SubElement, ElementTree
 from io import BytesIO
+from pathlib import Path
+from xml.etree.ElementTree import Element, ElementTree, SubElement
 
 # Output path
 _STATIC_DIR = Path(__file__).resolve().parent.parent / "static"

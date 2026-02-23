@@ -774,6 +774,8 @@ class AgentOrchestrator:
 
             elif tool_name == "save_matched_trials":
                 trials_data = tool_input.get("trials", [])
+                # Skip non-dict entries (Claude sometimes passes strings)
+                trials_data = [t for t in trials_data if isinstance(t, dict)]
                 # Normalize fit_score: if Claude passed a 0-1 float, convert to 0-100 percentage
                 for t in trials_data:
                     score = t.get("fit_score", 0)
@@ -1155,7 +1157,6 @@ class AgentOrchestrator:
             tool_results = []
             self._tools_executed = 0
             self._iteration_start = time.monotonic()
-            total_tools = len(tool_uses)
             for tu in tool_uses:
                 # Emit status for certain tools
                 if tu["name"] in ("search_trials",):

@@ -28,7 +28,7 @@ def check_playwright_browsers() -> bool:
 
         # Ask the playwright CLI for the browser path — this works inside
         # an async loop unlike sync_playwright().
-        result = subprocess.run(
+        subprocess.run(
             ["python3", "-m", "playwright", "install", "--dry-run"],
             capture_output=True, text=True, timeout=10,
         )

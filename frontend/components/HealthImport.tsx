@@ -97,7 +97,7 @@ function HealthImportSuccess({ summary, onDone }: { summary: ImportSummary; onDo
   const [visibleCount, setVisibleCount] = useState(0);
   const doneRef = useRef(false);
   const onDoneRef = useRef(onDone);
-  onDoneRef.current = onDone;
+  useEffect(() => { onDoneRef.current = onDone; }, [onDone]);
 
   useEffect(() => {
     if (cappedItems.length === 0) {

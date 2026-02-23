@@ -57,17 +57,10 @@ function SequentialReveal({ total }: { total: number }) {
 function AnimatedCount({ target }: { target: number }) {
   const [count, setCount] = useState(0);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const hasAnimated = useRef(false);
+  const [animationDone, setAnimationDone] = useState(false);
 
   useEffect(() => {
-    if (target <= 0) return;
-    // Only animate once — subsequent target changes just snap to the value
-    if (hasAnimated.current) {
-      setCount(target);
-      return;
-    }
-    hasAnimated.current = true;
-    setCount(0);
+    if (target <= 0 || animationDone) return;
     // Small delay so animation is visible after modal renders
     const delay = setTimeout(() => {
       const duration = 1500;
@@ -78,6 +71,7 @@ function AnimatedCount({ target }: { target: number }) {
         current += increment;
         if (current >= target) {
           setCount(target);
+          setAnimationDone(true);
           if (timerRef.current) clearInterval(timerRef.current);
         } else {
           setCount(Math.floor(current));
@@ -88,8 +82,9 @@ function AnimatedCount({ target }: { target: number }) {
       clearTimeout(delay);
       if (timerRef.current) clearInterval(timerRef.current);
     };
-  }, [target]);
-  return <>{count.toLocaleString()}</>;
+  }, [target, animationDone]);
+  // After animation completes, snap to target for any subsequent changes
+  return <>{(animationDone ? target : count).toLocaleString()}</>;
 }
 
 export default function Home() {

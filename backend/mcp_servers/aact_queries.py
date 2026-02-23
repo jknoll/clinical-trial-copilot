@@ -136,7 +136,7 @@ async def query_faceted_stats(filters: dict[str, Any]) -> dict[str, Any]:
 
     sex = filters.get("sex", "").strip()
     if sex and sex.lower() not in ("all", ""):
-        joins.append(f"INNER JOIN ctgov.eligibilities e ON e.nct_id = s.nct_id")
+        joins.append("INNER JOIN ctgov.eligibilities e ON e.nct_id = s.nct_id")
         where_clauses.append(f"(UPPER(e.gender) = 'ALL' OR UPPER(e.gender) = UPPER(${idx}))")
         params.append(sex)
         idx += 1
@@ -145,7 +145,7 @@ async def query_faceted_stats(filters: dict[str, Any]) -> dict[str, Any]:
     if age is not None:
         # Only add eligibilities join if not already added
         if not any("eligibilities" in j for j in joins):
-            joins.append(f"INNER JOIN ctgov.eligibilities e ON e.nct_id = s.nct_id")
+            joins.append("INNER JOIN ctgov.eligibilities e ON e.nct_id = s.nct_id")
         age_val = int(age)
         where_clauses.append(
             f"(e.minimum_age IS NULL OR e.minimum_age = '' OR "
@@ -164,7 +164,7 @@ async def query_faceted_stats(filters: dict[str, Any]) -> dict[str, Any]:
 
     states = filters.get("states")
     if states:
-        joins.append(f"INNER JOIN ctgov.facilities f ON f.nct_id = s.nct_id")
+        joins.append("INNER JOIN ctgov.facilities f ON f.nct_id = s.nct_id")
         placeholders = ", ".join(f"${idx + i}" for i in range(len(states)))
         where_clauses.append(f"f.state IN ({placeholders})")
         params.extend(states)

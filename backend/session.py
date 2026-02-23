@@ -9,7 +9,6 @@ from backend.models.patient import PatientProfile
 from backend.models.session import SessionState
 from backend.models.trial import MatchedTrial, TrialSummary
 
-
 _ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"
 
 

@@ -22,7 +22,7 @@ let httpServer: http.Server;
 const receivedMessages: Array<Record<string, unknown>> = [];
 
 /** Queue of messages the mock server should send to the client. */
-let serverMessageQueue: Array<Record<string, unknown>> = [];
+const serverMessageQueue: Array<Record<string, unknown>> = [];
 
 function createMockServers(): Promise<void> {
   return new Promise((resolve) => {

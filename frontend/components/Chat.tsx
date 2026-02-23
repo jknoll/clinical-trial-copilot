@@ -145,7 +145,7 @@ export function Chat({ sessionId, onFiltersChanged, detectedLocation, zeroResult
   const handleWidgetSubmitRef = useRef<((questionId: string, selections: string[], question?: string) => void) | null>(null);
   const handleTrialSelectionRef = useRef<((trialIds: string[]) => void) | null>(null);
   const onReportReadyRef = useRef(onReportReady);
-  onReportReadyRef.current = onReportReady;
+  useEffect(() => { onReportReadyRef.current = onReportReady; }, [onReportReady]);
 
   const msgCounterRef = useRef(0);
   const nextMsgId = useCallback((prefix: string) => {
@@ -365,7 +365,7 @@ export function Chat({ sessionId, onFiltersChanged, detectedLocation, zeroResult
       }
     } else if (type === "filters_update") {
       if (onFiltersChanged) {
-        const partial: Record<string, unknown> = {};
+        const partial: Partial<FacetedFilters> = {};
         const display: { key: string; label: string; value: string }[] = [];
 
         if (data.condition) {
@@ -398,7 +398,7 @@ export function Chat({ sessionId, onFiltersChanged, detectedLocation, zeroResult
         }
 
         if (display.length > 0) {
-          onFiltersChanged(partial as any, display);
+          onFiltersChanged(partial, display);
         }
       }
     } else if (type === "status") {
@@ -872,7 +872,7 @@ export function Chat({ sessionId, onFiltersChanged, detectedLocation, zeroResult
     [onFiltersChanged, onLocationConfirmed, onLocationOverride, detectedLocation, nextMsgId]
   );
 
-  handleWidgetSubmitRef.current = handleWidgetSubmit;
+  useEffect(() => { handleWidgetSubmitRef.current = handleWidgetSubmit; }, [handleWidgetSubmit]);
 
   const handleTrialSelection = useCallback(
     (trialIds: string[]) => {
@@ -892,7 +892,7 @@ export function Chat({ sessionId, onFiltersChanged, detectedLocation, zeroResult
     [nextMsgId]
   );
 
-  handleTrialSelectionRef.current = handleTrialSelection;
+  useEffect(() => { handleTrialSelectionRef.current = handleTrialSelection; }, [handleTrialSelection]);
 
   useEffect(() => {
     onContextPanelToggle?.(showContextPanel);
@@ -951,6 +951,7 @@ export function Chat({ sessionId, onFiltersChanged, detectedLocation, zeroResult
           </div>
         ))}
 
+        {/* eslint-disable-next-line react-hooks/refs -- pendingIdRef always co-mutated with state that triggers re-render */}
         {(isTyping || isServerProcessing) && !pendingIdRef.current && (
           <div className="flex items-center gap-1 px-4 py-3">
             <div className="typing-dot" />

@@ -80,7 +80,7 @@ export function StatusBar({ data, allData }: Props) {
             dataKey="name"
             width={120}
             interval={0}
-            tick={(props: any) => {
+            tick={(props: { x: string | number; y: string | number; payload: { value: string } }) => {
               const { x, y, payload } = props;
               const entry = entries.find((e) => e.name === payload.value);
               const active = entry?.active ?? false;

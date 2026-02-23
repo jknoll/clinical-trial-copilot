@@ -1,5 +1,7 @@
 # Clinical Trial Navigator
 
+[![CI](https://github.com/jknoll/clinical-trial-copilot/actions/workflows/ci.yml/badge.svg)](https://github.com/jknoll/clinical-trial-copilot/actions/workflows/ci.yml)
+
 **AI-powered clinical trial guidance for patients and caregivers.**
 
 [![Clinical Trial Compass Trailer](screenshots/Screenshot%202026-02-16%20at%201.21.13%20PM.png)](https://www.youtube.com/watch?v=KC_NnIFLtIM)

@@ -182,8 +182,8 @@ class TestTrimHistoryIntake:
             profile_complete=False,
         )
         orch._trim_history(state)
-        # 2 (start) + 1 (marker) + 20 (end) = 23
-        assert len(orch.conversation_history) == 23
+        # 1 (marker) + 20 (tail, starts with assistant) = 21
+        assert len(orch.conversation_history) == 21
 
     def test_search_phase_30_messages_trimmed(self):
         """30 messages > 24 threshold during SEARCH — SHOULD be trimmed."""
@@ -195,7 +195,8 @@ class TestTrimHistoryIntake:
             profile_complete=True,
         )
         orch._trim_history(state)
-        assert len(orch.conversation_history) == 23
+        # 2 (marker + bridge assistant) + 20 (tail, starts with user) = 22
+        assert len(orch.conversation_history) == 22
 
     def test_search_phase_20_messages_not_trimmed(self):
         """20 messages < 24 threshold during SEARCH — should NOT be trimmed."""
@@ -214,7 +215,8 @@ class TestTrimHistoryIntake:
         orch = _make_orchestrator()
         self._fill_history(orch, 30)
         orch._trim_history(None)
-        assert len(orch.conversation_history) == 23
+        # 2 (marker + bridge assistant) + 20 (tail, starts with user) = 22
+        assert len(orch.conversation_history) == 22
 
 
 # ---------------------------------------------------------------------------
@@ -311,7 +313,7 @@ class TestFullIntakeFlow:
 
         # Trim — this will cut messages
         orch._trim_history(state)
-        assert len(orch.conversation_history) == 23  # trimmed
+        assert len(orch.conversation_history) == 22  # trimmed (2 bridge + 20 tail)
 
         # But answers are still in the context!
         context = orch._build_session_context(state)

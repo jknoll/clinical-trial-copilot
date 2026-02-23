@@ -2,7 +2,13 @@
 
 **AI-powered clinical trial guidance for patients and caregivers.**
 
+[![Clinical Trial Compass Trailer](screenshots/Screenshot%202026-02-16%20at%201.21.13%20PM.png)](https://www.youtube.com/watch?v=KC_NnIFLtIM)
+
+▶️ [Watch the trailer on YouTube](https://www.youtube.com/watch?v=KC_NnIFLtIM)
+
 Clinical Trial Navigator transforms the overwhelming experience of searching 450,000+ trials on ClinicalTrials.gov into a personalized, conversational journey. Powered by Claude Opus 4.6, it conducts empathetic patient interviews, searches real clinical trial data, translates dense medical eligibility criteria into plain language, and generates accessible briefing reports for doctor visits.
+
+![Clinical Trial Compass — Web app with stats panel, chat, Apple Health import, and iOS companion](screenshots/Screenshot%202026-02-16%20at%201.21.01%20PM.png)
 
 Built for the **"Built with Opus 4.6" Hackathon** (Cerebral Valley x Anthropic, Feb 2026).
 
@@ -51,6 +57,12 @@ It does not provide medical advice. It provides information to help patients hav
 - **WCAG AA accessible reports** — HTML + PDF with eligibility checklists, comparison tables, doctor questions, and glossary
 - **WebSocket streaming** — real-time chat with progress status updates during long operations
 - **Drug safety links** — drug names linked to DailyMed for FDA label information
+
+## iOS Companion App
+
+The [Clinical Trial Health iOS app](https://github.com/jknoll/clinical-trial-health-ios) is included as a git submodule in the `ios/` directory. It provides an Apple Health integration that exports lab results, vitals, medications, and activity data to improve trial eligibility matching. The app pairs with the web interface via QR code and session code, allowing patients to securely share their health data from their iPhone.
+
+The iOS source requires [XcodeGen](https://github.com/yonaskolb/XcodeGen) to generate the Xcode project. See the [iOS repo](https://github.com/jknoll/clinical-trial-health-ios) for setup instructions.
 
 ## How It Works
 

@@ -181,7 +181,7 @@ export default function Home() {
           setStatsError(null);
         }
       } catch (e) {
-        if (!ignore) setStatsError("AACT database not connected. See database-connections.md for setup.");
+        if (!ignore) setStatsError("AACT database not connected. See docs/database-connections.md for setup.");
       } finally {
         if (!ignore) setStatsLoading(false);
       }
